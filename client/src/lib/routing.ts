@@ -405,6 +405,7 @@ export const platformColors: Record<string, string> = {
   sail:        '#0ea5e9',
   aclide:      '#6366f1',
   speka:       '#0d9488',
+  auray:       '#635bff',
   typhoon:     '#e11d48',
   plugsky:     '#0284c7',
   inferbase:   '#2563eb',
@@ -463,6 +464,7 @@ export const platformColors: Record<string, string> = {
   exa:         '#2563eb',
   firecrawl:   '#ef4444',
   linkup:      '#10b981',
+  parallel:    '#0ea5e9',
 }
 
 // ── Grouped (unified) rendering ──────────────────────────────────────────────

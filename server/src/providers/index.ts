@@ -7,6 +7,7 @@ import { TavilyProvider } from './tavily.js';
 import { ExaProvider } from './exa.js';
 import { FirecrawlProvider } from './firecrawl.js';
 import { LinkupProvider } from './linkup.js';
+import { ParallelProvider } from './parallel.js';
 import { CloudflareProvider } from './cloudflare.js';
 import { AIHordeProvider } from './aihorde.js';
 import { ModelScopeProvider } from './modelscope.js';
@@ -36,6 +37,7 @@ import { AirforceProvider } from './airforce.js';
 import { DreamPromptingProvider } from './dreamprompting.js';
 import { WaterfallProvider } from './waterfall.js';
 import { LogfareProvider } from './logfare.js';
+import { AurayProvider } from './auray.js';
 
 const providers = new Map<Platform, BaseProvider>();
 
@@ -79,6 +81,7 @@ register(new LlmtrProvider());
 register(new GizmoProvider());
 register(new BlockRunProvider());
 register(new MoondreamProvider());
+register(new AurayProvider());
 
 // Free-plan grants are shared wallets, not free credits per model. Eligibility
 // and tested model rows belong in Oracle, never in bundled DB migrations.
@@ -211,6 +214,8 @@ register(new TavilyProvider());
 register(new ExaProvider());
 register(new FirecrawlProvider());
 register(new LinkupProvider());
+// Keyless: anonymous Search MCP by default, REST API with a real key.
+register(new ParallelProvider());
 
 // Cloudflare Workers AI - OpenAI-compatible endpoint (key = "account_id:token")
 register(new CloudflareProvider());
