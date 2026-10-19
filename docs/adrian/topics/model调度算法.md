@@ -103,7 +103,7 @@ flowchart TD
 | 写入者 | 位置 | 性质 |
 |---|---|---|
 | 迁移脚本 | `db/migrations/20260101_000000_legacy_baseline.ts` 等 | 一次性，含 `intelligence_rank` 播种 |
-| 目录同步 | `catalog-sync.ts:393`（UPDATE）/`:403`（INSERT）/`:401`（`source='catalog'`） | 每 12h，`SYNC_INTERVAL_MS`（`catalog-sync.ts:56`）；`CATALOG_SYNC_DISABLED=1` 可关（`:1081`） |
+| 目录同步 | `catalog-sync.ts:393`（UPDATE）/`:403`（INSERT）/`:401`（`source='catalog'`） | 每 12h，`SYNC_INTERVAL_MS`（`catalog-sync.ts:56`）；`CATALOG_SYNC_DISABLED=1` 可关（`:1081`）；**除元数据外还写 `enabled`**，且方向单向（`:544`，见 §5.6） |
 | 用户/发现 | `routes/models.ts:156`、`custom-model-register.ts:113`、`builtin-model-discovery.ts:180`、`declarative-config.ts:276/390` | 手工录入与端点探测 |
 | **测量回写** | `router.ts:973`（`speed_rank`） | 见 §5.5 |
 | **错误反向学习** | `ratelimit.ts:1513`（`*_limit`）、`ratelimit.ts:1569`（`context_window`） | 见 §5.4，只降不升 |
@@ -332,13 +332,50 @@ if (ceiling != null) {
 
 写入 `UPDATE models SET speed_rank = ?`（`:973`），值取 `observedSpeedRank(speedScore(...))`。**这是一条单向的观测固化：它不影响打分（§3.2 推论 1），只影响展示与"按速度排序"，但会让目录数字随你的流量变化** —— 读源码时不要把 `speed_rank` 误当输入。
 
-### 5.6 目录同步 —— 每 12 小时覆盖元数据
+### 5.6 目录同步 —— 每 12 小时覆盖元数据，也会覆盖 `enabled`
 
 `SYNC_INTERVAL_MS = 12h`（`catalog-sync.ts:56`，注释"twice daily"），会 `UPDATE models`（`:393`）、`INSERT` 新模型（`:403`）、把行认领为 `source='catalog'`（`:401`）。它覆盖 `intelligence_rank` / `size_label` / 限额等元数据 —— 于是出现一个时间性陷阱：**你手工改的元数据，最长期望值是 12 小时**，除非它同时被写成 `model_overrides`（override 会被重新物化回来）。另外 `CATALOG_SYNC_DISABLED=1` 可整条关掉（`:1081-1082`）。
 
 > 同一时间性结论适用于 §5.4(a)(b) 学到的限额与上下文窗口 —— **但只对"目录拥有"的行成立**。`applyCatalogInner` 的 `updateModel`（`catalog-sync.ts:545`）无条件写入 `rpm/rpd/tpm/tpd/context_window/size_label/intelligence_rank`，所以 `source='catalog'` 的行上学到的保守值最迟 12 小时被上游 advertise 值覆盖回去；而 `source='user'` 的行在 `:521` 直接 `continue`（手工添加的模型撞名时"用户行赢"），custom 端点行也不在目录里。**对本机 `model_db_id=1133`（`platform='custom'`）来说，(a)(b) 学到的值是持久的**，只有 (c) 输出上限会随重启丢失。
 >
 > 于是"上周还路由得到，这周这个模型总被剔除"有两种相反的解释：catalog 行的学习值被覆盖 → 闸门**放开**；或上游把窗口撑大/压小 → 闸门**改变**。两者都要重新 `SELECT context_window, tpm_limit FROM models` 而不是回忆旧值。
+
+⚠️ **同一句 `updateModel` 还覆盖 `enabled`，而且是不对称的** —— 这是本篇初稿的遗漏，`2026-10-16` 在本机咬到了人。`updateModel`（`catalog-sync.ts:393-400`）的赋值列表里除了元数据还有 `enabled = @enabled`（`:398`），而它的值在 `:543-545` 现算，注释直接写着 "Catalog disable wins (dead upstream); local disable also wins."：
+
+```ts
+const enabled = m.enabled ? row.enabled : 0;   // catalog-sync.ts:544
+```
+
+拆开看是**两个方向不对称**：
+
+- 目录说**禁用** → 无条件刷 0。你在仪表盘上、或用 SQL 把 `models.enabled` 打开，**撑不过下一次 apply**（12h 轮询、任何一次重启的 `reapplyCachedCatalog`、或手动 `POST /api/premium/sync`）。
+- 目录说**启用** → 只是"保留行现值"，**不会**把 0 抬回 1。所以一次目录判死在代码层面是**棘轮**：后续目录重新收录该模型也不会自动复活，只能手动 `UPDATE models SET enabled = 1`。（这半句是从这两行读出来的结论，**本机尚未实测** —— 现行目录 `v2026.10.18.cbb31395` 仍把这批模型标 `enabled:false`，没有"重新开放"的样本可验。）
+
+**同一份文件里有六处这个三元式** —— chat `:544`、media `:486`、video `:580`、embedding `:621`（变量名是 `e.enabled`，形状相同）、transcription `:650`、search `:689`，五类模态共用一条规则，所以被目录"顺手判死"的不止聊天模型（`media_models` / `embedding_models` 的 `enabled` 同理）。
+
+**影响面是整平台**：一次 `applyCatalog` 可以同时把某个 `platform` 的所有行刷 0，于是**手工维护的链被清空**，报出来的错和"你自己把链开关关掉"一模一样（`router.ts:1412-1417` 的 `Profile 'x' has no enabled models`），但**修法完全不同**。排查口诀：复算 router 可见数用的是 `pm.enabled = 1 AND m.enabled = 1` 的合取（§3.1 的 JOIN），**先看是哪一侧归零** —— 链开关（`profile_models.enabled`）同步永远不碰，模型开关（`models.enabled`）同步会碰。
+
+本机时间线（UTC，`logs/freeapi.log` + `settings`，全部实测）：
+
+| 时刻 | 事件 |
+|---|---|
+| `10-16 08:29` | `Profile 'volcengine' has no enabled models` —— 起因是 `profile_models.enabled` 被误关，与目录无关 |
+| `10-16 08:54:46` | 修好链开关后 `/v1 auto:volcengine` 打通，`doubao-seed-evolving` 200 —— 当时 12 行 `models.enabled` 全为 1 |
+| `10-16 12:07:57` | 应用重启，re-apply 缓存里的 `v2026.10.15.c2791367`（该文档没有判死这批模型，所以刷完仍是 1） |
+| `10-16 12:08:09` | **applied `v2026.10.16.7388413c: 1027 updated, 0 new, 0 removed`** —— 该文档 12 条 volcengine 全 `enabled:false`，12 行被刷 0 |
+| `10-16 12:08:31` | 同一句话重新出现，但故障已经从链开关搬到 `models.enabled` |
+
+上游侧的旁证在同一份日志里：Ark 对其中的 id 返回 `404 The model or endpoint doubao-seed-1.6 does not exist or you do not have access to it`，只有 `doubao-seed-evolving` 返回过 200 —— **目录的判死不是本机误读**，所以"顺手把它打开"是在跟真实上游状态作对。复核这两个数不要用记忆：`datetime(catalog_last_sync_ms/1000,'unixepoch')` 对日志里的 `applied` 行，`enabled` 判定直接读 `settings.catalog_applied_json`。
+
+**如果确实要保留一条被判死的 leg**（例如链里唯一能服务的那个 id 恰好是目录判死的），唯一持久的办法是换身份而不是翻开关：
+
+```sql
+UPDATE models SET source='user', enabled=1 WHERE id = <model_db_id>;
+```
+
+`source='user'` 之后，这一行同时躲开三处：目录写（`:521` `continue`）、目录 prune（只删 `source='catalog'`）、上游退役（`model-retirement.ts:85-87` 只对 `isCatalogManagedModel` 的行生效）。代价是它的 `context_window` / 限额 / 排名从此冻结，`_limit` 的学习值也不再被目录纠正。
+
+> ❌ 反面做法：**在模型页删掉再重加**。删除会落一条 `catalog_model_tombstones`（`routes/models.ts:349`，`recordCatalogModelTombstone` 默认 `source='user'`，`model-state.ts:211`），而 `catalog-sync.ts:502` 对墓碑**整条 `continue`** —— 那才是真不可逆，连上游以后重新开放都回不来。手加同名模型也会撞上 `:136-143` 的 409（同一 `platform + model_id + endpoint_scope` 只允许一行）。
 
 ### 5.7 月度口径 —— 没有定时器
 
@@ -399,7 +436,7 @@ if (ceiling != null) {
 10. **被跳过的候选不留 `request_attempts`** —— 轨迹不能证明顺序，只能证明"发生过什么"。
 11. **失败请求也计入额度与统计** —— `requests` 聚合不按 `status` 过滤（canceled 除外），仪表盘"已用"含失败请求。
 12. **`custom-key-mismatch` 会被 UI 说成"不可用"** —— 它在 `fallback-loop.ts:1133` 归入 `'config'`（→ 503），但 `summarizeExhaustion` 的分桶列表（`router.ts:104-112`）里没有它（该列表的 `no usable key configured` 分支只匹配 `no enabled+healthy key|no usable key|decrypt-error`），于是掉进最后的 `else bump('unavailable')`，文案变成"3 unavailable, 请添加更多 API key"，而真相是"你已有的 key 被 `model_scope_json` 挡掉了"。诊断行的产生点在 `router.ts:1595`。**（我判定为产品缺陷；`1dbc878c` 仍未修复，尚未向上游提 issue。）**
-13. **12 小时的目录同步可能覆盖你手工改的元数据**（§5.6）—— 但**只覆盖 `source='catalog'` 的行**；`source='user'` 与 custom 端点行永远不会被同步写（`catalog-sync.ts:521` / `:496`）。
+13. **12 小时的目录同步覆盖的不只是元数据，还覆盖 `enabled`，而且是单向的**（§5.6）—— `catalog-sync.ts:544` 的 `m.enabled ? row.enabled : 0`：**目录标禁 → 该行必被刷 0，你手改打开也撑不过下一次 apply；目录标启 → 只保留行现值，不会把 0 抬回 1**。于是一次目录判死在代码层面是棘轮，后续目录重新收录也不自动复活（此半句未实测）。这一切只发生在**目录拥有**的行上：`source='user'` 与 custom 端点行永远不会被同步写（`:521` / `:496`），所以"要保留一条被判死但确实能服务的 leg"是**改 source，不是翻开关**（见 §5.6 末尾的 SQL 与其代价）。
 14. **客户端点名（pin）不再能捞出上游已退役的模型** —— `router.ts:2183-2186`：墓碑 `source === 'upstream_eol'` 时注入被拒。这是本次 pull 的行为变化；如果你用 `model=<具体 id>` 打一个 410 退役模型，过去会被强行注入并失败，现在直接顺延到链的其余部分。**排查"点名却不服务"时先看墓碑表**（`getCatalogModelTombstone`，`model-state.ts:172`）。
 15. **删一把 API key 会删掉模型行、链条目和它们的全部实测样本** —— `keys.ts:1746-1749`（本次 pull 扩大到任意平台的 `key_id` 绑定行，#1516）。这是唯一让候选集"整行消失"的运营动作（§5.8）。
 16. **输出上限的学习值既不在 DB、也不在 `models`** —— 它是 `lib/output-cap.ts` 的内存 Map，按 `(platform, model_id, endpoint_scope)` 键，**重启清零**（§5.4c）。同一个模型经不同中继各有一份上限，所以"这个模型被截断了但库里没记录"是正常状态。
@@ -461,10 +498,12 @@ flowchart LR
   | §4③ pin 的 `upstream_eol` 否决 | `retiredUpstream` ×3、`upstream_eol` ×7 | ✅ 已生效 |
   | §5.4(b) `learnContextWindowFromError` | 命中 ×3 | ✅ 已生效 |
   | §5.8 删 key 级联 `DELETE FROM models WHERE key_id = ?` | 命中 ×1 | ✅ 已生效 |
+  | §5.6 目录禁用获胜 `const enabled = m.enabled ? row.enabled : 0` | 命中 ×6，与源码一一对应：chat `:544`、media `:486`、video `:580`、embedding `:621`、transcription `:650`、search `:689` —— **五类模态共用同一条规则** | ✅ 已生效，且**本机实际被它咬过**：10-16 12:08:09Z 应用 `v2026.10.16.7388413c` 时 12 行 volcengine 全被刷 `enabled=0`（`logs/freeapi.log` + `settings.catalog_applied_json` 双向核对） |
   | §5.4(c) 输出上限**按端点**键（#1532） | `function capKey(platform, modelId, endpointScope…)` **未命中**，仓库版是 3 参数 | ❌ 运行实例仍是**按模型**键（#1532 之前的版本）—— 多中继场景下 A 中继学到的上限会截断 B 中继的回复，且不会被重启清除以外的方式纠正 |
 
   末行是本篇唯一已确认"源码 ≠ 本机行为"的地方：§5.4(c) 的"按端点而非按模型"只对 `1dbc878c` 成立，对当前运行的 0.15.0 **不成立**。
 - **未实测（本次 pull 新增的三条）**：`learnContextWindowFromError` 与 `learnOutputCapFromError` 在本机**没有观察到触发记录** —— §6 的 sense 链全是自定义中继，返回的错误里没有 "maximum context length" / "max_tokens … must be ≤ N" 这类文案；pin 的 `upstream_eol` 否决同理未实测。三条的结论**全部来自源码 + 上游测试**（`server/src/__tests__/services/learn-context-window.test.ts`、`__tests__/lib/output-cap.test.ts`），未在本机复现。
+- **未实测**：§5.6 的"启用方向不复活"（`m.enabled ? row.enabled : 0` 里的 `row.enabled` 分支）目前只是源码结论 —— 本机还没有"目录先判死、后来重新收录"的样本（10-16 判死 doubao 的那批，到 10-19 的 `v2026.10.18.cbb31395` 仍是 `enabled:false`）。若哪天出现这种目录，验证方法就一句：`SELECT enabled FROM models WHERE platform='volcengine'`，看它是否仍停在 0。
 - **未读取，不臆测**：`providers/*.ts` 内每个 provider 自己上报配额/冷却时长的解析细节；`degradation.ts` 的健康快照采样周期与阈值常数；新增的 `services/search.ts`（691 行，web-search 工具链路）与本篇的调度关系。
 - **无法从外部验证的一层**：仪表盘 `/api/*` 只认 `sessions.token_hash`（`middleware/requireAuth.ts:8-18`），明文 token 不可恢复；`statsCache` / `rateLimitPenalties` / `output-cap.learned` 是进程内存，**只能靠行为或数据库派生量反推**。验证调度请用 `/v1` + `settings.unified_api_key`（明文，`db/index.ts:225-229`，`model` 传 `auto:<链名>`），别去动 `api_keys.encrypted_key`。
 
@@ -524,7 +563,7 @@ server/src/services/model-state.ts:359-399   modelsWithOverriddenField / applyMo
 server/src/services/catalog-sync.ts:56       SYNC_INTERVAL_MS=12h
 server/src/services/catalog-sync.ts:392-403  目录同步对 models 的 UPDATE/adopt/INSERT 语句
 server/src/services/catalog-sync.ts:496/521  custom 平台跳过 / source='user' 行「用户赢」跳过
-server/src/services/catalog-sync.ts:542-553  updateModel/insertModel 调用点 + refreshModelOverrideBaselines + applyModelOverrides
+server/src/services/catalog-sync.ts:542-553  updateModel/insertModel 调用点；:544 是 `enabled = m.enabled ? row.enabled : 0`（目录禁用获胜，§5.6）；另接 refreshModelOverrideBaselines + applyModelOverrides
 server/src/services/catalog-sync.ts:1081-1082 CATALOG_SYNC_DISABLED
 server/src/services/custom-model-register.ts:113  custom 模型注册（目录中位数播种）
 server/src/services/builtin-model-discovery.ts:180  发现路径写入 models
