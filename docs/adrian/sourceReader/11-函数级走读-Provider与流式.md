@@ -6,7 +6,7 @@
 
 ---
 
-## 1. `BaseProvider.fetchWithTimeout`（base.ts:~300）
+## 1. `BaseProvider.fetchWithTimeout`（base.ts:326）
 
 ```ts
 protected async fetchWithTimeout(
@@ -31,7 +31,7 @@ protected async fetchWithTimeout(
 
 **坑**：默认参数在**调用时**求值 `providerTimeoutMs(this.platform, …)`，注册 spec 的 timeoutMs 与 env 覆盖的优先级（env > spec > 15s）就是在这里落的。
 
-## 2. `readWithStallTimeout` + `firstByteBudgetMs`（base.ts:~352/~395）
+## 2. `readWithStallTimeout` + `firstByteBudgetMs`（base.ts:392/422）
 
 ```ts
 protected async readWithStallTimeout<T>(read: () => Promise<T>,
@@ -42,7 +42,7 @@ protected firstByteBudgetMs(chatTimeoutMs: number, stallTimeoutMs: number): numb
 - 前者是 `Promise.race([read(), setTimeout(reject)])`，`<=0` 直通；客户端 abort 的 rejection 原样穿过（undici 已用请求 signal 的 reason error 掉 body，这里不会误报 stall）。
 - 后者一行：`max(chat, stall)`，任一为 0 则 0（无界）。**存在理由**（+395 起注释）：chat 超时本意是「首 token 可以慢多久」，但在流式下它随响应头就被解除；NVIDIA NIM 这类「秒回 headers、prefill 几分钟」的 provider 会让第一口 read 无人看守。下限取 stall 预算，保证不会被改得比 #584 之前更严。
 
-## 3. `readSseStream` / `readSseFrames`（base.ts:~410~506）
+## 3. `readSseStream` / `readSseFrames`（base.ts:458-524）
 
 ```ts
 protected async *readSseStream(res, opts?): AsyncGenerator<ChatCompletionChunk>
@@ -67,7 +67,7 @@ firstByteMs    = this.firstByteBudgetMs(chatTimeoutMs, stallTimeoutMs)
 
 外层 `readSseStream` 再套 `extractThinkTagsFromStream`：DeepSeek 式把推理写进 `delta.content` 的 `<think>…</think>` 内联块被搬去 `delta.reasoning_content`——下游永远不把思考当答案渲染；无标签的流逐字节原样转发。
 
-## 4. `validationResult`（base.ts:~253）
+## 4. `validationResult`（base.ts:295）
 
 ```ts
 protected async validationResult(res: Response): Promise<KeyValidationResult>
@@ -78,7 +78,7 @@ protected async validationResult(res: Response): Promise<KeyValidationResult>
 - `cf-mitigated: challenge` 头 → **throw**（+258~+262 注释）：Cloudflare bot 挑战是对调用方 IP/UA 说话，不是对 key；抛错让健康服务记「无定论」，**永不自动禁用好 key**（#1298）。
 - 401/403 → 从六种 body 形状（`error.message / errors[0].message / message / detail / title / statusText`）里找第一个非空字符串拼进 error——把「invalid」升级成「invalid, because 上游说了 X」。
 
-## 5. `OpenAICompatProvider.chatCompletion`（openai-compat.ts:296）
+## 5. `OpenAICompatProvider.chatCompletion`（openai-compat.ts:322）
 
 ```ts
 async chatCompletion(apiKey, messages, modelId, options?, quotaContext?)
@@ -109,7 +109,7 @@ async chatCompletion(apiKey, messages, modelId, options?, quotaContext?)
 
 成功路径收尾：`normalizeChoices(data)` + `data._routed_via = {platform, model}`（诊断字段，05 篇）。
 
-## 6. `streamChatCompletion`（openai-compat.ts:425）
+## 6. `streamChatCompletion`（openai-compat.ts:453）
 
 与 5 同构，三处不同：
 
@@ -119,7 +119,7 @@ async chatCompletion(apiKey, messages, modelId, options?, quotaContext?)
 
 `guardInBandCreditsError`（+499）：只检查**第一个 content-bearing chunk**——余额告是单条固定文案；第一帧之后逐字节透传，reasoning/role chunk 直接过（首 token 延迟不受影响）。抛出发生在 proxy 的 commit point **之前**，回退循环还能轮换下一跳。
 
-## 7. `validateKey` 与 `fetchQuota`（openai-compat.ts:570/587）
+## 7. `validateKey` 与 `fetchQuota`（openai-compat.ts:603/634）
 
 ```ts
 validateKey(apiKey, quotaContext?) → fetchCatalogEndpoint(validateUrl ?? modelsUrl) → §4 validationResult
@@ -132,7 +132,7 @@ quota 探测（#1403，注册 spec 驱动，如 openrouter 的 `GET /api/v1/key`
 - `limit` 与 `remaining` 全拿不到 ⇒ false；拿到就 `recordQuotaObservation(source:'quota_api', resetStrategy:'provider_reported')`。
 - `hasQuotaProbe`（+583）：**spec 存在与否**才回答「有没有配额端点」——不能拿方法覆盖判断（OpenAICompatProvider 对所有实例都覆盖了 fetchQuota，base.ts 注释言明）。
 
-## 8. `normalizeChoices`（openai-compat.ts:654）
+## 8. `normalizeChoices`（openai-compat.ts:701）
 
 上游形状矫正的收口点（原地改 data）：
 
@@ -162,10 +162,10 @@ streamStallTimeoutMs(platform?)      // 平台级 > 全局 > 90s，0 关
 
 ## 源码索引（绝对行号，以当前 checkout 为准）
 
-- `server/src/providers/base.ts` — 253-285 `validationResult`；300-356 `fetchWithTimeout`；352-382 `readWithStallTimeout` 与 #584/#553 注释；384-405 `firstByteBudgetMs`/`firstByteTimeoutMessage`；407-506 `readSseStream`/`readSseFrames`（503-505 截断抛错）；507 文件尾
-- `server/src/providers/openai-compat.ts` — 89-104 spec 字段；123-133 timeoutMs 解析；135-148 `resolveParallelToolCalls`；150-178 `rescueFailedGeneration`；180-194 `upstreamErrorText`；228-294 `messagesForPlatform`；296-423 `chatCompletion`；425-487 `streamChatCompletion`；499-568 `guardInBandCreditsError`；570-573 `validateKey`；583-642 `hasQuotaProbe`/`fetchQuota`；654+ `normalizeChoices`
-- `server/src/lib/provider-timeout.ts` — 1-70 全部旋钮函数
-- `server/src/providers/index.ts` — 42-60 google 60s 注册例；NVIDIA 180s/#584 注释（145-152）；`CUSTOM_PROVIDER_TIMEOUT_MS`（604）
+- `server/src/providers/base.ts` — 295-324 `validationResult`；326-375 `fetchWithTimeout`；380-408 `readWithStallTimeout` 与 #584/#553 注释；422-431 `firstByteBudgetMs`/`firstByteTimeoutMessage`；458-524 `readSseStream`/`readSseFrames`（521-523 截断抛错）；525 文件尾
+- `server/src/providers/openai-compat.ts` — 103-120 spec 字段；122-145 timeoutMs 解析；151-154 `resolveParallelToolCalls`；166-189 `rescueFailedGeneration`；206-212 `upstreamErrorText`；255-320 `messagesForPlatform`；322-451 `chatCompletion`；453-520 `streamChatCompletion`；532-552 `guardInBandCreditsError`；603-620 `validateKey`；630-689 `hasQuotaProbe`/`fetchQuota`；701-732 `normalizeChoices`
+- `server/src/lib/provider-timeout.ts` — 1-75 全部旋钮函数
+- `server/src/providers/index.ts` — 51-54 google 60s 注册例；NVIDIA 180s/#584 注释（160-174）；`CUSTOM_PROVIDER_TIMEOUT_MS`（624）
 - `server/src/lib/think-tags.ts` — `extractThinkTagsFromStream`
 
 ---
