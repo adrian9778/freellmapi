@@ -4,26 +4,26 @@
 
 ---
 
-## 0 一张路由挂载总图（`app.ts:204-330`，全部经源码核实）
+## 0 一张路由挂载总图（`app.ts:206-334`，全部经源码核实）
 
 ```
 app.ts 挂载顺序（顺序即优先级）
-  app.use(clientContextMiddleware)                    :204
-  app.use(ollamaRouter)                               :217   ← /api/tags 等，注意在 admin 门之前
-  app.use('/api', adminRateLimiter)                   :231
-  app.use('/api/auth', authRouter)                    :236   ← 无需 requireAuth（登录入口）
-  app.use('/api/keys/export', EXPORT_RATE_LIMIT_RPM)  :242   ← 密码暴破上限 10/min
-  app.use('/api/keys', requireAuth, keysRouter)       :244
-  ... 其余 /api/* 全部 requireAuth                     :248-272
-  app.use('/v1', docsRouter)                          :283   ← /v1/openapi.json, /v1/docs
-  app.use('/v1', providersRouter)                     :289   ← /v1/providers, /v1/quota-forecast
-  app.use('/v1/t/:token', rateLimiter, urlTokenRouter):292-293 ← URL 内嵌凭证（媒体类客户端）
-  app.use('/v1', proxyRateLimiter, ...)               :298-309
+  app.use(clientContextMiddleware)                    :206
+  app.use(ollamaRouter)                               :219   ← /api/tags 等，注意在 admin 门之前
+  app.use('/api', adminRateLimiter)                   :233
+  app.use('/api/auth', authRouter)                    :238   ← 无需 requireAuth（登录入口）
+  app.use('/api/keys/export', EXPORT_RATE_LIMIT_RPM)  :244   ← 密码暴破上限 10/min
+  app.use('/api/keys', requireAuth, keysRouter)       :246
+  ... 其余 /api/* 全部 requireAuth                     :250-276
+  app.use('/v1', docsRouter)                          :287   ← /v1/openapi.json, /v1/docs
+  app.use('/v1', providersRouter)                     :293   ← /v1/providers, /v1/quota-forecast
+  app.use('/v1/t/:token', rateLimiter, urlTokenRouter):296-297 ← URL 内嵌凭证（媒体类客户端）
+  app.use('/v1', proxyRateLimiter, ...)               :302-313
       anthropicRouter → proxyRouter → moderationRouter → responsesRouter
-  app.use('/v1beta', rateLimiter, geminiRouter)       :312-313
-  app.use('/mcp', rateLimiter, mcpRouter)             :320-321
-  app.use(statusRouter)                               :327   ← /livez /readyz（无认证无限流）
-  app.use(errorHandler)                               :330
+  app.use('/v1beta', rateLimiter, geminiRouter)       :316-317
+  app.use('/mcp', rateLimiter, mcpRouter)             :324-325
+  app.use(statusRouter)                               :331   ← /livez /readyz（无认证无限流）
+  app.use(errorHandler)                               :334
 ```
 
 **两套限流器**（`middleware/rateLimit.ts`）：`createProxyRateLimiter(120 RPM)` 挂 wire 面、`createAdminRateLimiter` 挂 `/api`；export 路由再叠一层更严的 10/min。
@@ -34,33 +34,33 @@ app.ts 挂载顺序（顺序即优先级）
 
 | 方法 | 路径 | 锚点 | 说明 |
 |------|------|------|------|
-| GET | `/v1/models` | proxy.ts:314 | 列表；`?available=true` 只回当前配额可用的（CLI 双查区分「不存在」vs「耗尽」） |
-| POST | `/v1/chat/completions` | proxy.ts:1493 | 主入口。`model:"auto"` 或省略 = 自动路由（proxy.ts:44-54） |
-| POST | `/v1/completions` | proxy.ts:1076 | legacy 补全，内部翻译为 chat 形态 |
-| POST | `/v1/embeddings` | proxy.ts:677 | → `services/embeddings.ts:runEmbeddings` |
-| POST | `/v1/rerank` | proxy.ts:712 | → `services/rerank.ts:runRerank`（非 OpenAI 标准，cohere 风格） |
-| POST | `/v1/images/generations` | proxy.ts:769 | → `services/media.ts:runImageGeneration` |
-| POST | `/v1/videos/generations` | proxy.ts:807 | → `runVideoGeneration` |
-| POST | `/v1/audio/speech` | proxy.ts:863 | TTS |
-| POST | `/v1/audio/transcriptions` | proxy.ts:912 | STT；multer 上传，`MAX_TRANSCRIPTION_BYTES` 封顶 |
+| GET | `/v1/models` | proxy.ts:317 | 列表；`?available=true` 只回当前配额可用的（CLI 双查区分「不存在」vs「耗尽」） |
+| POST | `/v1/chat/completions` | proxy.ts:1643 | 主入口。`model:"auto"` 或省略 = 自动路由（proxy.ts:47-57） |
+| POST | `/v1/completions` | proxy.ts:1232 | legacy 补全，内部翻译为 chat 形态 |
+| POST | `/v1/embeddings` | proxy.ts:680 | → `services/embeddings.ts:runEmbeddings` |
+| POST | `/v1/rerank` | proxy.ts:715 | → `services/rerank.ts:runRerank`（非 OpenAI 标准，cohere 风格） |
+| POST | `/v1/images/generations` | proxy.ts:925 | → `services/media.ts:runImageGeneration` |
+| POST | `/v1/videos/generations` | proxy.ts:963 | → `runVideoGeneration` |
+| POST | `/v1/audio/speech` | proxy.ts:1019 | TTS |
+| POST | `/v1/audio/transcriptions` | proxy.ts:1068 | STT；multer 上传，`MAX_TRANSCRIPTION_BYTES` 封顶 |
 | POST | `/v1/moderations` | moderation.ts:25 | #1155 |
-| POST | `/v1/responses` | responses.ts:624 | OpenAI Responses API 形态（后台任务/流式事件） |
-| POST | `/v1/messages` | anthropic.ts:444 | **Anthropic Messages 协议**，同一 router 复用 |
-| POST | `/v1/messages/count_tokens` | anthropic.ts:1087 | Anthropic 计费预估 |
-| GET | `/v1/models` (anthropic 形态) | anthropic.ts:1126 | 与 proxy 的 GET /models 同路径不同鉴权头（x-api-key） |
+| POST | `/v1/responses` | responses.ts:657 | OpenAI Responses API 形态（后台任务/流式事件） |
+| POST | `/v1/messages` | anthropic.ts:456 | **Anthropic Messages 协议**，同一 router 复用 |
+| POST | `/v1/messages/count_tokens` | anthropic.ts:1125 | Anthropic 计费预估 |
+| GET | `/v1/models` (anthropic 形态) | anthropic.ts:1164 | 与 proxy 的 GET /models 同路径不同鉴权头（x-api-key） |
 | GET | `/v1/providers` | status.ts:112 | 按 provider 汇总的健康/配额视图 |
 | GET | `/v1/quota-forecast` | status.ts:221 | `services/quota-forecast.ts` 预测配额耗尽时间 |
 | GET | `/v1/openapi.json` `/v1/docs` | docs.ts:14,20 | 内嵌 OpenAPI 文档 |
-| * | `/v1/t/:token/*` | url-tokens.ts + routes/url-tokens.ts | 短期 URL 令牌（图片等无法带 header 的场景） |
+| * | `/v1/t/:token/*` | services/url-tokens.ts + routes/url-tokens.ts | 短期 URL 令牌（图片等无法带 header 的场景） |
 
 ### 1.1 Anthropic 双面共存的一个细节
 
-`GET /v1/models` 有**两个 handler**（proxy.ts:314 与 anthropic.ts:1126），挂载顺序 anthropic 在前（app.ts:304 vs 305）——Anthropic SDK 拉模型列表时命中 anthropic 版，返回带 Anthropic 家族描述的形态；`anthropic-map.ts:claudeFamilyDiscoveryEntries` 负责把内部模型 id 映射成 Claude 风格 id。
+`GET /v1/models` 有**两个 handler**（proxy.ts:317 与 anthropic.ts:1164），挂载顺序 anthropic 在前（app.ts:308 vs 309）——Anthropic SDK 拉模型列表时命中 anthropic 版，返回带 Anthropic 家族描述的形态；`anthropic-map.ts:claudeFamilyDiscoveryEntries` 负责把内部模型 id 映射成 Claude 风格 id。
 
 ### 1.2 认证统一（三头一验）
 
 ```
-extractApiToken()  proxy.ts:78-89
+extractApiToken()  proxy.ts:78-92
   Authorization: Bearer …   → OpenAI 习惯
   x-api-key: …              → Anthropic SDK
   x-goog-api-key: …         → Gemini SDK
@@ -98,13 +98,13 @@ resolveAuth()  lib/system-prompt.ts
 | POST | `/api/embed` | ollama.ts:595 |
 | POST | `/api/embeddings` | ollama.ts:602（legacy） |
 
-**注意与 `/api/*` admin 面的路径共存**：ollamaRouter 先挂（app.ts:217），Ollama 面自带 token 校验逻辑；未命中 ollama 的 `/api/*` 落入 adminRateLimiter + requireAuth 分支（app.ts:231 之后）。
+**注意与 `/api/*` admin 面的路径共存**：ollamaRouter 先挂（app.ts:219），Ollama 面自带 token 校验逻辑；未命中 ollama 的 `/api/*` 落入 adminRateLimiter + requireAuth 分支（app.ts:233 之后）。
 
 ---
 
 ## 4 MCP 面（`routes/mcp.ts`）
 
-`POST /mcp`（mcp.ts:587）+ `GET /mcp`（611）。把 gateway 作为 MCP server 暴露（工具目录 = 可用模型）；`settings.mcp_enabled` 开关（migration 20260903_000001）。
+`POST /mcp`（mcp.ts:676）+ `GET /mcp`（700）。把 gateway 作为 MCP server 暴露（工具目录 = 可用模型）；`settings.mcp_enabled` 开关（migration 20260903_000001）。
 
 ---
 
@@ -121,7 +121,7 @@ Docker healthcheck 实际打 `/api/ping`（docker-compose.yml）——由 health
 
 ## 6 `/api/*` Dashboard 管理面（全部 `requireAuth`，session token 认证）
 
-挂载清单（app.ts:244-272，逐条核实）：
+挂载清单（app.ts:246-276，逐条核实）：
 
 ```
 /api/auth            authRouter        登录/注册/session（唯一免 requireAuth）
@@ -152,7 +152,7 @@ Docker healthcheck 实际打 `/api/ping`（docker-compose.yml）——由 health
 
 ## 7 Provider 契约（跨面共享的抽象，`providers/base.ts`）
 
-33 个 provider 单例注册进 `Map<Platform, BaseProvider>`（providers/index.ts:35-39）。契约三方法 + 两个可选（详见 [04](04-核心模块与类关系.md) §2）。
+33 个 provider 单例注册进 `Map<Platform, BaseProvider>`（providers/index.ts:45-49）。契约三方法 + 两个可选（详见 [04](04-核心模块与类关系.md) §2）。
 
 **wire 形态 × 面 的复用矩阵**——同一 `routeRequest/streamChatCompletion` 内核服务 5 种入口协议：
 
@@ -172,8 +172,8 @@ fallback-loop 头注释（fallback-loop.ts:2-17）披露了这个设计的由来
 
 | CLI 命令 | 打到哪里 | 认证 |
 |----------|----------|------|
-| `setup-*` / `launch*`（21 个 agent） | 只读 `GET /v1/models?available=true` + `GET /v1/models`（双查区分不存在 vs 耗尽，index.ts:165-220） | `FREELLMAPI_API_KEY`（Bearer） |
-| `keys add/list/remove/test` | `GET/POST/DELETE /api/keys`、`POST /api/health/check/{id}`、`GET /api/keys/providers`、`GET /api/models`（keys.ts:94-116） | `FREELLMAPI_DASHBOARD_TOKEN`（session） |
+| `setup-*` / `launch*`（21 个 agent） | 只读 `GET /v1/models?available=true` + `GET /v1/models`（双查区分不存在 vs 耗尽，index.ts:162-220） | `FREELLMAPI_API_KEY`（Bearer） |
+| `keys add/list/remove/test` | `GET/POST/DELETE /api/keys`、`POST /api/health/check/{id}`、`GET /api/keys/providers`、`GET /api/models`（keys.ts:118-176） | `FREELLMAPI_DASHBOARD_TOKEN`（session） |
 | `doctor` | `GET {url}/livez`（doctor.ts:303-345） | 无 |
 
 **配置文件写入契约**（tools.ts:1037-1080 + config-files.ts:409-416）：四种 merge 语义（JSON deep-merge / YAML 结构化 merge 保注释键序 / TOML 分块 merge / ENV 按 key 替换），两阶段提交，写前备份，sensitive 0600。
@@ -186,7 +186,7 @@ fallback-loop 头注释（fallback-loop.ts:2-17）披露了这个设计的由来
 { "error": { "message": "...", "type": "authentication_error | rate_limit_exceeded | routing_error | invalid_request_error", "code": null } }
 ```
 
-- 401 语义纪律：client 端只在 `type==='authentication_error'` 时清 session（client/src/lib/api.ts:44-49）——provider key 坏掉的 401 不得把用户登出
+- 401 语义纪律：client 端只在 `type==='authentication_error'` 时清 session（client/src/lib/api.ts:44-53）——provider key 坏掉的 401 不得把用户登出
 - 429 exhaustion：body 携带 `summarizeExhaustion()` 的九桶摘要 + `Retry-After`（`setExhaustionHeaders`，fallback-loop）
 - 错误文本经 `lib/error-redaction.ts` 消毒，绝不回显上游 key/内部 URL
 
@@ -211,18 +211,18 @@ fallback-loop 头注释（fallback-loop.ts:2-17）披露了这个设计的由来
 
 | 文件 | 符号 | 行号 |
 |------|------|------|
-| server/src/app.ts | 挂载序列 | 204-330 |
-| server/src/routes/proxy.ts | `proxyRouter` 全部端点 | 314-1493 |
-| server/src/routes/responses.ts | `/responses` | 624 |
-| server/src/routes/anthropic.ts | `/messages` 群 | 444-1126 |
+| server/src/app.ts | 挂载序列 | 206-334 |
+| server/src/routes/proxy.ts | `proxyRouter` 全部端点 | 317-1643 |
+| server/src/routes/responses.ts | `/responses` | 657 |
+| server/src/routes/anthropic.ts | `/messages` 群 | 456-1164 |
 | server/src/routes/gemini.ts | `/v1beta/models…` | 80-231 |
 | server/src/routes/ollama.ts | Ollama 端点群 | 96-602 |
-| server/src/routes/mcp.ts | MCP | 587-611 |
+| server/src/routes/mcp.ts | MCP | 676-700 |
 | server/src/routes/moderation.ts | `/moderations` | 25 |
 | server/src/routes/status.ts | `/livez` `/readyz` `/providers` `/quota-forecast` | 41-221 |
 | server/src/routes/docs.ts | openapi/docs | 14-20 |
 | server/src/lib/fallback-loop.ts | 双面漂移历史注释 | 2-17 |
-| cli/src/keys.ts | CLI→API 映射 | 94-116 |
-| cli/src/index.ts | 双查模型目录 | 165-220 |
+| cli/src/keys.ts | CLI→API 映射 | 118-176 |
+| cli/src/index.ts | 双查模型目录 | 162-220 |
 | cli/src/doctor.ts | livez 探测 | 303-345 |
-| shared/types.ts | wire 类型契约 | 410-540 |
+| shared/types.ts | wire 类型契约 | 445-575 |
