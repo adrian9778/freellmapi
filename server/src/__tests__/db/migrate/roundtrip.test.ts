@@ -44,6 +44,10 @@ const KEY_MONTHLY_USAGE_FILENAME = '20260914_000001_key_monthly_usage.ts';
 const QUOTA_SNAPSHOT_FRESHNESS_FILENAME = '20260915_000001_quota_snapshot_freshness.ts';
 const CUSTOM_ENDPOINT_GROUP_LABEL_FILENAME = '20260930_000001_custom_endpoint_group_label.ts';
 const SEARCH_ENGINES_FILENAME = '20261013_000001_search_engines.ts';
+const DECISION_REQUESTS_FILENAME = '20261016_000001_decision_requests.ts';
+const LLMTR_REENABLE_KEYS_FILENAME = '20261017_000001_llmtr_reenable_keys.ts';
+const REMOVE_GITHUB_PROVIDER_FILENAME = '20261017_000002_remove_github_provider.ts';
+const REQUEST_FAILURE_ATTRIBUTION_FILENAME = '20261017_233153_request_failure_attribution.ts';
 
 interface SchemaRow {
   type: string;
@@ -134,6 +138,10 @@ describe('migration round trip', () => {
         QUOTA_SNAPSHOT_FRESHNESS_FILENAME,
         CUSTOM_ENDPOINT_GROUP_LABEL_FILENAME,
         SEARCH_ENGINES_FILENAME,
+        DECISION_REQUESTS_FILENAME,
+        LLMTR_REENABLE_KEYS_FILENAME,
+        REMOVE_GITHUB_PROVIDER_FILENAME,
+        REQUEST_FAILURE_ATTRIBUTION_FILENAME,
       ]);
     } finally {
       db.close();
