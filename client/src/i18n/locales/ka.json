@@ -542,6 +542,8 @@
     "providerActions": "პროვაიდერის ქმედებები",
     "routeViaProxy": "მარშრუტი პროქსის საშუალებით",
     "checkNow": "შეამოწმეთ ახლა",
+    "lastWorkedHint": "Last worked: {when}",
+    "lastWorkedNever": "Has not served a request or passed a check yet",
     "noAutoCheckHint": "ეს პროვაიდერი არ უშვებს გასაღების ავტომატურ შემოწმებას. გასაღები ჯანსაღი ხდება პირველი მოთხოვნის მომსახურების შემდეგ.",
     "noModelsYetHint": "თქვენს კატალოგში ჯერ არ არის ამ პროვაიდერის მოდელები, ამიტომ მოსამსახურებელი არაფერია.",
     "proxyEnvHintBefore": "ასევე კონფიგურირებადი მეშვეობით",
@@ -712,6 +714,10 @@
     "monthlyTokenCapLabel": "თვიური ტოკენების ლიმიტი",
     "capUnlimitedPlaceholder": "შეუზღუდავი",
     "capEditHint": "ლიმიტები სათითაო თვის 1-ს 00:00 UTC აღდგება. დატოვეთ ცარიელი შეუზღუდავისთვის.",
+    "keyProxyLabel": "Proxy for this key",
+    "keyProxyHint": "Leave blank to keep the current setting. Requests made with this key use this proxy instead of the global one; local and LAN addresses still connect directly.",
+    "keyProxyRemoved": "The proxy is removed when you save, and this key goes back to the global proxy.",
+    "keyProxyUndo": "Undo",
     "monthlyUsageLine": "ამ თვეში {requests} მოთხოვნა, {tokens} ტოკენი",
     "quotaBalanceHint": "დარჩა {remaining} / {limit} {metric}",
     "quotaBalanceLeft": "დარჩა {remaining}"
@@ -1182,7 +1188,8 @@
       "openclaw": "მუდამ ჩართული პირადი ასისტენტი, რომელიც თქვენივე მანქანიდან პასუხობს WhatsApp-ში, Telegram-ში, Discord-სა და სხვაგან.",
       "hermes": "Nous Research-ის თვითგანვითარებადი აგენტი მუდმივი მეხსიერებითა და უნარებით, ტერმინალში ან ჩატის აპებში.",
       "pi": "მინიმალისტური ტერმინალის აგენტი, რომელსაც საკუთარი გაფართოებებით, უნარებითა და მოთხოვნის შაბლონებით აწყობთ.",
-      "reasonix": "DeepSeek-ისთვის შექმნილი ტერმინალის კოდირების აგენტი, აგებული პრეფიქსის ქეშირებაზე, რომ ხანგრძლივი სესიები იაფი დარჩეს."
+      "reasonix": "DeepSeek-ისთვის შექმნილი ტერმინალის კოდირების აგენტი, აგებული პრეფიქსის ქეშირებაზე, რომ ხანგრძლივი სესიები იაფი დარჩეს.",
+      "zcode": "Z.ai's coding agent for its GLM models, speaking any OpenAI-compatible endpoint through a provider registry."
     }
   },
   "update": {

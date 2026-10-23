@@ -542,6 +542,8 @@
     "providerActions": "Actions du fournisseur",
     "routeViaProxy": "Acheminer via le proxy",
     "checkNow": "Vérifier maintenant",
+    "lastWorkedHint": "Dernier fonctionnement : {when}",
+    "lastWorkedNever": "N'a encore servi aucune requête ni réussi de vérification",
     "noAutoCheckHint": "Ce fournisseur n'autorise pas les vérifications automatiques de clés. La clé passe à l'état sain après avoir servi sa première requête.",
     "noModelsYetHint": "Votre catalogue ne contient encore aucun modèle de ce fournisseur, il n'a donc rien à servir.",
     "proxyEnvHintBefore": "Également configurable via la variable d'environnement ",
@@ -712,6 +714,10 @@
     "monthlyTokenCapLabel": "Plafond mensuel de jetons",
     "capUnlimitedPlaceholder": "Illimité",
     "capEditHint": "Les plafonds sont réinitialisés le 1er à 00:00 UTC. Laissez vide pour illimité.",
+    "keyProxyLabel": "Proxy for this key",
+    "keyProxyHint": "Leave blank to keep the current setting. Requests made with this key use this proxy instead of the global one; local and LAN addresses still connect directly.",
+    "keyProxyRemoved": "The proxy is removed when you save, and this key goes back to the global proxy.",
+    "keyProxyUndo": "Undo",
     "monthlyUsageLine": "{requests} requêtes, {tokens} jetons ce mois",
     "quotaBalanceHint": "{remaining} sur {limit} {metric} restants",
     "quotaBalanceLeft": "{remaining} restants"
@@ -1182,7 +1188,8 @@
       "openclaw": "Un assistant personnel toujours actif qui répond sur WhatsApp, Telegram, Discord et plus encore, depuis votre propre machine.",
       "hermes": "L'agent auto-améliorant de Nous Research, avec mémoire persistante et compétences, dans le terminal ou sur les applis de chat.",
       "pi": "Un agent de terminal minimaliste que vous façonnez avec vos propres extensions, compétences et modèles de prompts.",
-      "reasonix": "Un agent de code pour le terminal pensé pour DeepSeek, bâti autour du cache de préfixe pour que les longues sessions restent bon marché."
+      "reasonix": "Un agent de code pour le terminal pensé pour DeepSeek, bâti autour du cache de préfixe pour que les longues sessions restent bon marché.",
+      "zcode": "L'agent de code de Z.ai pour ses modèles GLM, compatible avec tout point de terminaison OpenAI via un registre de fournisseurs."
     }
   },
   "update": {

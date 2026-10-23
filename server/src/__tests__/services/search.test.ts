@@ -14,6 +14,7 @@ import {
 import { SEARCH_PLATFORMS as SHARED_SEARCH_PLATFORMS } from '../../../../shared/types.js';
 import { SEARCH_PLATFORMS } from '../../lib/search-platforms.js';
 import { seedSearchEngines } from '../helpers/search-engines.js';
+import { clearLastHealthyStampState } from '../../services/health.js';
 
 const realFetch = globalThis.fetch;
 
@@ -106,6 +107,23 @@ describe('search service', () => {
       { title: 'B', url: 'https://b', content: 'beta', score: 0.5 },
     ]);
     expect(logRows()).toEqual([{ engine_id: 'exa-search', platform: 'exa', status: 'ok', result_count: 2 }]);
+  });
+
+  it('a served search marks the key as working; a failed one does not (#1493)', async () => {
+    clearLastHealthyStampState();
+    const good = addKey('exa');
+    getDb().prepare("UPDATE api_keys SET status = 'unknown' WHERE id = ?").run(good);
+    mockFetch(() => json({ results: [{ title: 'A', url: 'https://a', text: 'alpha' }] }));
+    await runSearch('q');
+    expect(getDb().prepare('SELECT status, last_healthy_at FROM api_keys WHERE id = ?').get(good))
+      .toMatchObject({ status: 'healthy', last_healthy_at: expect.any(String) });
+
+    getDb().prepare('DELETE FROM api_keys').run();
+    clearAllCooldowns(Number.MAX_SAFE_INTEGER);
+    const bad = addKey('exa');
+    mockFetch(() => json({ error: 'boom' }, 500));
+    await expect(runSearch('q')).rejects.toBeInstanceOf(SearchError);
+    expect(getDb().prepare('SELECT last_healthy_at FROM api_keys WHERE id = ?').get(bad)).toEqual({ last_healthy_at: null });
   });
 
   it('passes Tavily topic/answer through and keeps its scores', async () => {
@@ -212,6 +230,64 @@ describe('search service', () => {
         : json({ results: [{ title: 'T', url: 'https://t', content: 'c' }] }));
       const out = await runSearch('q');
       expect(out.provider).toBe('tavily');
+    });
+  });
+
+  describe('Keenable (keyless)', () => {
+    function seedKeenable(): void {
+      getDb().prepare(`
+        INSERT INTO media_models (platform, model_id, display_name, modality, priority, enabled, quota_label, meta_json)
+        VALUES ('keenable', 'keenable-search', 'Keenable Search', 'search', 5, 1, 'Free, no key needed', '{}')
+      `).run();
+    }
+    const hits = { results: [
+      { url: 'https://a', title: 'A &amp; B', description: '', snippet: 'one', published_at: '2026-05-05T00:00:00Z' },
+      { url: 'https://b', title: '', description: '', snippet: 'x'.repeat(2_000) },
+      { url: '', title: 'dropped', description: '', snippet: 'x' },
+    ] };
+
+    it('searches the public endpoint with the stored sentinel and maps snippets', async () => {
+      seedKeenable();
+      addKey('keenable', 'no-key');
+      expect(searchAvailable()).toBe(true);
+      const fn = mockFetch(() => json(hits));
+      const out = await runSearch('node version');
+      const [url, init] = calls(fn)[0];
+      expect(url).toBe('https://api.keenable.ai/v1/search/public');
+      expect((init.headers as Record<string, string>)['X-Keenable-Title']).toBe('freellmapi');
+      expect((init.headers as Record<string, string>)['X-API-Key']).toBeUndefined();
+      expect(bodyOf(calls(fn)[0])).toEqual({ query: 'node version', max_results: 5 });
+      expect(out).toMatchObject({ provider: 'keenable', engine: 'keenable-search' });
+      expect(out.results).toEqual([
+        { title: 'A & B', url: 'https://a', content: 'one', score: 1 },
+        { title: 'https://b', url: 'https://b', content: `${'x'.repeat(1_500)}…`, score: 0.5 },
+      ]);
+    });
+
+    it('uses the keyed endpoint with X-API-Key when a real key is stored', async () => {
+      seedKeenable();
+      addKey('keenable', 'real-keenable-key');
+      const fn = mockFetch(() => json(hits));
+      const out = await runSearch('q', { maxResults: 1 });
+      const [url, init] = calls(fn)[0];
+      expect(url).toBe('https://api.keenable.ai/v1/search');
+      expect((init.headers as Record<string, string>)['X-API-Key']).toBe('real-keenable-key');
+      expect(bodyOf(calls(fn)[0])).toEqual({ query: 'q', max_results: 1 });
+      expect(out.results).toHaveLength(1);
+    });
+
+    it('cools a rate-limited keyless row down and fails over to the next engine', async () => {
+      seedKeenable();
+      addKey('keenable', 'no-key');
+      addKey('tavily');
+      updateSearchEngine(listSearchEngines().find(e => e.engineId === 'keenable-search')!.id, { priority: 0 });
+      const fn = mockFetch(url => url.startsWith('https://api.keenable.ai')
+        ? json({ error: 'Too many requests' }, 429, { 'retry-after': '30' })
+        : json({ results: [{ title: 'T', url: 'https://t', content: 'c' }] }));
+      expect((await runSearch('q')).provider).toBe('tavily');
+      // The benched Keenable row is skipped on the next search.
+      await runSearch('q2');
+      expect(calls(fn).map(c => new URL(c[0]).host)).toEqual(['api.keenable.ai', 'api.tavily.com', 'api.tavily.com']);
     });
   });
 
