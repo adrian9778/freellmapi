@@ -17,6 +17,7 @@ import { ZhipuProvider } from './zhipu.js';
 import { SailProvider } from './sail.js';
 import { AclideProvider } from './aclide.js';
 import { SpekaProvider } from './speka.js';
+import { KenariProvider } from './kenari.js';
 import { TyphoonProvider } from './typhoon.js';
 import { PlugskyProvider } from './plugsky.js';
 import { InferbaseProvider } from './inferbase.js';
@@ -43,6 +44,7 @@ import { ApinexProvider } from './apinex.js';
 import { OnomeoProvider } from './onomeo.js';
 import { IteraComputeProvider } from './iteracompute.js';
 import { SerpSearchProvider } from './serpsearch.js';
+import { BraveProvider } from './brave.js';
 
 const providers = new Map<Platform, BaseProvider>();
 
@@ -78,6 +80,7 @@ register(new OpenAICompatProvider({
 register(new SailProvider());
 register(new AclideProvider());
 register(new SpekaProvider());
+register(new KenariProvider());
 register(new TyphoonProvider());
 register(new PlugskyProvider());
 register(new InferbaseProvider());
@@ -93,6 +96,7 @@ register(new OnomeoProvider());
 // monthly token allowance; no free credential probe (see adapter docs).
 register(new IteraComputeProvider());
 register(new SerpSearchProvider());
+register(new BraveProvider());
 
 // Free-plan grants are shared wallets, not free credits per model. Eligibility
 // and tested model rows belong in Oracle, never in bundled DB migrations.
