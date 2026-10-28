@@ -9,7 +9,7 @@
 >
 > **与既有文档的分工**：`../../en/architecture/05-catalog-sync.md`（及 `docs/zh-cn/architecture/05-catalog-sync.md`）是按产品机制写的 deep-dive，偏「规则清单」；`../sourceReader/12-函数级走读-存储配置与请求入口.md` 是按函数拆的读法；`model调度算法.md` 讲目录写完之后**谁在消费这些表**。本篇按**数据落地的物理顺序**讲：一次 HTTP 往返 → 一行 settings → 七张表 → 运行时读取链。三者的出入（含 05 文档需要修的三处）见 §9。
 >
-> **版本与记法**：正文一律 `文件:行号`，绝对行号以工作树 `adrian`@`778074b6`（2026-10-19 13:37 +0800 提交；本篇写作时 HEAD 已到 `1e1d8e16`，其间只动过 `docs/`，源码逐字节未变，行号仍成立）为准。本机运行的网关是 `/Applications/FreeLLMAPI.app` v0.16.3（`app.asar` 构建于 10-18 21:45），**与工作树不是同一份代码**；凡是「只有旧构建才会这样」的观察，正文里单独标注。实测全部为**只读**：`sqlite3 -readonly`、日志 grep、`grep -a` 打 asar，日期 2026-10-19，实例是桌面版默认数据目录（§2.4）。
+> **版本与记法**：正文一律 `文件:行号`，绝对行号以工作树 `adrian`@`c45fa7ef`（2026-10-28 同步）为准。本机运行的网关是 `/Applications/FreeLLMAPI.app` v0.16.11（`app.asar` 构建于 10-27 12:19），**与工作树不是同一份代码**；凡是「只有旧构建才会这样」的观察，正文里单独标注。实测全部为**只读**：`sqlite3 -readonly`、日志 grep、`grep -a` 打 asar，日期 2026-10-28，实例是桌面版默认数据目录（§2.4）。
 
 ---
 
@@ -17,10 +17,10 @@
 
 | 问题 | 一句话答案 | 证据 |
 |---|---|---|
-| 存在哪里 | **不落文件**。整份已验签的 JSON 当作**一个字符串**塞进 `settings` 表 `key='catalog_applied_json'` 那一行（本机 1,318,951 字节 ≈ 1.3 MB），再由它拆成关系表；行位置随部署形态变，桌面版是 `~/Library/Application Support/FreeLLMAPI/freeapi.db` | [catalog-sync.ts:1074](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1074)、§2.4 实测 |
-| 什么结构 | 顶层 12 个 key：`version/generatedAt/tier` + 6 个注册表（`models/embeddings/transcriptionModels/videoModels/searchEngines/decisionModels`）+ `quirks`；另有 `counts/platforms/models[].quirks` 三处**客户端根本不读**。校验由 `catalogShapeProblems` 逐字段做，一次最多报 8 条 | [catalog-sync.ts:198-231](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L198)、§3 |
-| 更新什么 | 六条写入流（chat / 生成式媒体 / 视频 / 搜索 / 决策 / 嵌入）+ 按模态分七类裁剪 + `quirks` 全量替换 + `fallback_config`/`profile_models` 补不变式；本机一次同步典型是 **1042 updated / 0 new / 0 removed / 34 skipped** | [catalog-sync.ts:467-1014](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L467)、§4.4 实测 |
-| 运行影响 | 生效靠**各缓存自己过期**，没有任何事件总线：链缓存 1s、密钥计数/窗口用量/配额 5s、打分统计 60s。真正危险的是**每次启动 migration 与缓存重放的拉锯**，以及 `CATALOG_SYNC_DISABLED=1` 会把重放一起关掉 | [router.ts:1321-1332](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/router.ts#L1321)、[catalog-sync.ts:1215-1229](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1215)、§5 |
+| 存在哪里 | **不落文件**。整份已验签的 JSON 当作**一个字符串**塞进 `settings` 表 `key='catalog_applied_json'` 那一行（本机 1,318,951 字节 ≈ 1.3 MB），再由它拆成关系表；行位置随部署形态变，桌面版是 `~/Library/Application Support/FreeLLMAPI/freeapi.db` | [catalog-sync.ts:1111](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1111)、§2.4 实测 |
+| 什么结构 | 顶层 12 个 key：`version/generatedAt/tier` + 6 个注册表（`models/embeddings/transcriptionModels/videoModels/searchEngines/decisionModels`）+ `quirks`；另有 `counts/platforms/models[].quirks` 三处**客户端根本不读**。校验由 `catalogShapeProblems` 逐字段做，一次最多报 8 条 | [catalog-sync.ts:235-268](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L235)、§3 |
+| 更新什么 | 六条写入流（chat / 生成式媒体 / 视频 / 搜索 / 决策 / 嵌入）+ 按模态分七类裁剪 + `quirks` 全量替换 + `fallback_config`/`profile_models` 补不变式；本机一次同步典型是 **1042 updated / 0 new / 0 removed / 34 skipped** | [catalog-sync.ts:504-1051](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L504)、§4.4 实测 |
+| 运行影响 | 生效靠**各缓存自己过期**，没有任何事件总线：链缓存 1s、密钥计数/窗口用量/配额 5s、打分统计 60s。真正危险的是**每次启动 migration 与缓存重放的拉锯**，以及 `CATALOG_SYNC_DISABLED=1` 会把重放一起关掉 | [router.ts:1321-1332](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/router.ts#L1321)、[catalog-sync.ts:1252-1266](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1252)、§5 |
 
 ---
 
@@ -31,10 +31,10 @@
 ```
 <PremiumPage> 按钮     onClick → syncNow.mutate()          PremiumPage.tsx:90
    └ 文案在 pending 时切成「同步中…」                        PremiumPage.tsx:92
-POST /api/premium/sync                                        premium.ts:86
-   ├ await refreshLicenseStatus()          ← 先验 license     premium.ts:87 → catalog-sync.ts:1127
-   ├ await syncCatalog(true)               ← force=true！     premium.ts:88 → catalog-sync.ts:1021
-   └ res.json({ ...statusPayload(), sync })  ← 恒 200         premium.ts:89
+POST /api/premium/sync                                        premium.ts:87
+   ├ await refreshLicenseStatus()          ← 先验 license     premium.ts:88 → catalog-sync.ts:1164
+   ├ await syncCatalog(true)               ← force=true！     premium.ts:89 → catalog-sync.ts:1058
+   └ res.json({ ...statusPayload(), sync })  ← 恒 200         premium.ts:90
 onSuccess → invalidate() 六连发                               PremiumPage.tsx:33-40
    ['premium'] ['models'] ['fallback'] ['embeddings'] ['media'] ['search-engines']
 ```
@@ -68,22 +68,22 @@ sequenceDiagram
 
 四个值得单独钉住的细节：
 
-1. **`force=true` 让「检查更新」永远比自动同步更贵。** 定时轮询走 `syncCatalog()`（无参），带上 `?since=<appliedVersion>`，服务端没新版就打回 304（[catalog-sync.ts:1030](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1030)、`:1034`）；手动点与加/删 license key 走 `force=true`，`since` 被跳过，**每次都把整份 1.3 MB 文档拉下来并走完验签**，哪怕版本没变——然后 `sameAsApplied` 命中（`:1065`），一行数据都不改，只在日志里留不下任何痕迹。
-2. **同步失败不是 HTTP 错误。** `syncCatalog` 把所有异常吞在自己的 `try/catch` 里并返回 `{ok:false, action:'error', detail}`（`:1089-1094`），路由照样 `res.json(...)` 回 200。前端全局只有 `mutationCache.onError` 会弹 toast（[App.tsx:64-68](file:///Users/vincent/workspace/16_AI/freellmapi/client/src/App.tsx#L64)），**200 不弹**；失败的唯一出口是面板上那行「上次同步问题：{error}」，因为 `catalog_last_error` 被写进了 settings。
-3. **验签覆盖的是原始字节，不是解析后的对象。** `crypto.verify(null, bytes, …)` 里的 `bytes` 就是 `res.arrayBuffer()`，之后才 `JSON.parse`（`:1043-1047`）。所以「CDN 被投毒 / 中间人改包」与「签名不匹配」是同一道闸门挡掉的，而 `since` 的 304 分支**根本不走验签**（在 `:1034` 就返回了）——它信的是 HTTP 缓存语义，不是密码学。
+1. **`force=true` 让「检查更新」永远比自动同步更贵。** 定时轮询走 `syncCatalog()`（无参），带上 `?since=<appliedVersion>`，服务端没新版就打回 304（[catalog-sync.ts:1067](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1067)、`:1071`）；手动点与加/删 license key 走 `force=true`，`since` 被跳过，**每次都把整份 1.3 MB 文档拉下来并走完验签**，哪怕版本没变——然后 `sameAsApplied` 命中（`:1102`），一行数据都不改，只在日志里留不下任何痕迹。
+2. **同步失败不是 HTTP 错误。** `syncCatalog` 把所有异常吞在自己的 `try/catch` 里并返回 `{ok:false, action:'error', detail}`（`:1126-1130`），路由照样 `res.json(...)` 回 200。前端全局只有 `mutationCache.onError` 会弹 toast（[App.tsx:64-68](file:///Users/vincent/workspace/16_AI/freellmapi/client/src/App.tsx#L64)），**200 不弹**；失败的唯一出口是面板上那行「上次同步问题：{error}」，因为 `catalog_last_error` 被写进了 settings。
+3. **验签覆盖的是原始字节，不是解析后的对象。** `crypto.verify(null, bytes, …)` 里的 `bytes` 就是 `res.arrayBuffer()`，之后才 `JSON.parse`（`:1080-1084`）。所以「CDN 被投毒 / 中间人改包」与「签名不匹配」是同一道闸门挡掉的，而 `since` 的 304 分支**根本不走验签**（在 `:1071` 就返回了）——它信的是 HTTP 缓存语义，不是密码学。
 4. **`RefreshCw` 图标转起来 ≠ 正在写库。** `syncNow.isPending` 只覆盖那一次 fetch；写库、写 settings 全在服务端 await 里，前端看不到中间态。本机时间戳能反推出顺序：`premium_license_status.checkedAtMs` = 15:21:07、`catalog_last_sync_ms` = 15:21:09（同一次手点，相隔 2.3 s）。
 
 除了按钮，同步还有四个触发点：
 
 | 触发点 | 调用 | force | 代码 |
 |---|---|---|---|
-| 进程就绪后 10 s | `scheduler.after(BOOT_DELAY_MS, run)` | 否 | [catalog-sync.ts:1226](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1226) |
-| 之后每 12 h | `scheduler.every(SYNC_INTERVAL_MS, run)` | 否 | `:1227` |
-| 点「检查更新」 | `syncCatalog(true)` | **是** | [premium.ts:88](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/routes/premium.ts#L88) |
-| 激活 / 移除 key | `syncCatalog(true)` | **是**（tier 会变而 version 不变） | `premium.ts:71`、`:81` |
+| 进程就绪后 10 s | `scheduler.after(BOOT_DELAY_MS, run)` | 否 | [catalog-sync.ts:1263](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1263) |
+| 之后每 12 h | `scheduler.every(SYNC_INTERVAL_MS, run)` | 否 | `:1265` |
+| 点「检查更新」 | `syncCatalog(true)` | **是** | [premium.ts:89](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/routes/premium.ts#L89) |
+| 激活 / 移除 key | `syncCatalog(true)` | **是**（tier 会变而 version 不变） | `premium.ts:72`、`:81` |
 | 声明式配置里的 `license:` | `activateConfiguredLicense()` 末尾 `void syncCatalog(true)` | **是** | [declarative-config.ts:562](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/declarative-config.ts#L562) |
 
-`run()` 里两个调用都是 `void`（`:1222-1225`），且 `NodeScheduler.every` 就是裸 `setInterval` + `void fn()`（[scheduler.ts](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/lib/scheduler.ts)），**没有防重入**：上一轮没跑完，下一轮照发。安全性完全靠「12 h ≫ 20 s fetch 超时」与两个函数各自的 catch-all。
+`run()` 里两个调用都是 `void`（`:1260-1262`），且 `NodeScheduler.every` 就是裸 `setInterval` + `void fn()`（[scheduler.ts](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/lib/scheduler.ts)），**没有防重入**：上一轮没跑完，下一轮照发。安全性完全靠「12 h ≫ 20 s fetch 超时」与两个函数各自的 catch-all。
 
 ---
 
@@ -113,49 +113,49 @@ sequenceDiagram
                   premium_license_key / premium_license_status
 ```
 
-这三层都在**同一个 SQLite 文件**里，`settings` 是一张 `key TEXT PRIMARY KEY, value TEXT NOT NULL` 的普通 KV 表（[20260101_000000_legacy_baseline.ts:155](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrations/20260101_000000_legacy_baseline.ts#L155)）。**全仓没有任何 `fs.writeFile` 把目录写成 .json**——写文件的只有发布者侧的导出脚本（§3.5）。
+这三层都在**同一个 SQLite 文件**里，`settings` 是一张 `key TEXT PRIMARY KEY, value TEXT NOT NULL` 的普通 KV 表（[20260101_000000_legacy_baseline.ts:196](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrations/20260101_000000_legacy_baseline.ts#L196)）。**全仓没有任何 `fs.writeFile` 把目录写成 .json**——写文件的只有发布者侧的导出脚本（§3.5）。
 
 ### 2.2 第①层：整份文档就是 1.3 MB 的一行
 
-[catalog-sync.ts:1070-1074](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1070) 存的是 `bytes.toString('utf8')`，也就是**验签过的那串原始字节**，注释把信任模型讲得很清楚：能篡改这一行的攻击者本来就能直接改 `models` 表，所以缓存不额外增加攻击面。它有两个读者：
+[catalog-sync.ts:1107-1111](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1107) 存的是 `bytes.toString('utf8')`，也就是**验签过的那串原始字节**，注释把信任模型讲得很清楚：能篡改这一行的攻击者本来就能直接改 `models` 表，所以缓存不额外增加攻击面。它有两个读者：
 
 | 读者 | 干什么 | 位置 |
 |---|---|---|
-| `reapplyCachedCatalog()` | 每次启动同步重放，无需网络 | `:1194` |
-| `appliedCatalogPlatforms()` | 目录管了哪些平台，供内置模型发现让路 | `:430` |
+| `reapplyCachedCatalog()` | 每次启动同步重放，无需网络 | `:1230` |
+| `appliedCatalogPlatforms()` | 目录管了哪些平台，供内置模型发现让路 | `:466` |
 | `cachedCatalogDefaults()` | 仪表盘改模型时，取「目录默认值」当 override 基线 | [model-state.ts:93-111](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L93) |
 | 迁移 `20260726_000003` | 一次性回填 `models.source` 的归属判定 | [该文件:53](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrations/20260726_000003_model_source_provenance.ts#L53) |
 
-代价也随之而来：`appliedCatalogPlatforms` 每次调用**都要把整行读出来**再和内存里缓存的 `raw` 做字符串比较（`:430-432`）；1.3 MB 的行比较是每次数毫秒的内存操作，而它落在 `startBuiltinModelDiscovery` 的路径上（[builtin-model-discovery.ts:84](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/builtin-model-discovery.ts#L84)）。这是「目录即单一事实源」设计换来的固定税，源码里没做长度分桶或版本号旁路。
+代价也随之而来：`appliedCatalogPlatforms` 每次调用**都要把整行读出来**再和内存里缓存的 `raw` 做字符串比较（`:466-479`）；1.3 MB 的行比较是每次数毫秒的内存操作，而它落在 `startBuiltinModelDiscovery` 的路径上（[builtin-model-discovery.ts:84](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/builtin-model-discovery.ts#L84)）。这是「目录即单一事实源」设计换来的固定税，源码里没做长度分桶或版本号旁路。
 
 ### 2.3 第②③层：谁写谁、放什么
 
 | 存储对象 | 写入者 | 本机实测（2026-10-19） |
 |---|---|---|
-| `settings.catalog_applied_json` | `:1074`，仅在真正 apply 时更新 | 1,318,951 字节 |
-| `settings.catalog_applied_version` | `:1068` | `2026.10.18.cbb31395`（19 字符，日期+提交短哈希） |
-| `settings.catalog_applied_tier` | `:1069` | `live` |
-| `settings.catalog_last_sync_ms` | `:1035/1060/1081/1086` 四条成功路径都写 | `1792394469406` = 2026-10-19 15:21:09 CST |
-| `settings.catalog_last_error` | 成功清空、失败写 message（`:1092`） | 空串 |
-| `settings.premium_license_key` | `premium.ts:69`（`setSetting`），**明文存**；对外只露 `maskedKey`（前 7 + 后 4，`premium.ts:16-20`） | 36 字符（`fla_` + 32），本篇不复述其值 |
-| `settings.premium_license_status` | `:1138`，整份 `LicenseStatus` JSON | `{"valid":true,"plan":"annual","status":"active","expiresAt":"2027-10-12T00:25:12.000Z","cancelAtPeriodEnd":false,"checkedAtMs":1792394467594}` |
-| `models` | `insertModel`/`updateModel`（`:474-491`） | 1034 行 = 952 `catalog` + 64 `discovered` + 18 `user` |
-| `media_models` | 4 条注册表共用（`:494-516`） | audio 16 / decision 7 / image 12 / search 6 / transcription 8 / video 3 |
-| `embedding_models` | `:520-534` | 52 行 |
-| `quirks` / `quirk_targets` | 全量替换（`:996-1008`） | 93 / 129 行 |
-| `fallback_config` | 补缺失行（`:818-827`） | 1034 行（每模型一行，不变式成立） |
-| `profile_models` | `ensureAllModelsInProfiles`（`:828`） | 2712 行 / 4 条链 |
+| `settings.catalog_applied_json` | `:1111`，仅在真正 apply 时更新 | 1,318,951 字节 |
+| `settings.catalog_applied_version` | `:1105` | `2026.10.18.cbb31395`（19 字符，日期+提交短哈希） |
+| `settings.catalog_applied_tier` | `:1106` | `live` |
+| `settings.catalog_last_sync_ms` | `:1072/1097/1118/1123` 四条成功路径都写 | `1792394469406` = 2026-10-19 15:21:09 CST |
+| `settings.catalog_last_error` | 成功清空、失败写 message（`:1129`） | 空串 |
+| `settings.premium_license_key` | `premium.ts:70`（`setSetting`），**明文存**；对外只露 `maskedKey`（前 7 + 后 4，`premium.ts:17-21`） | 36 字符（`fla_` + 32），本篇不复述其值 |
+| `settings.premium_license_status` | `:1175`，整份 `LicenseStatus` JSON | `{"valid":true,"plan":"annual","status":"active","expiresAt":"2027-10-12T00:25:12.000Z","cancelAtPeriodEnd":false,"checkedAtMs":1792394467594}` |
+| `models` | `insertModel`/`updateModel`（`:511-528`） | 1034 行 = 952 `catalog` + 64 `discovered` + 18 `user` |
+| `media_models` | 4 条注册表共用（`:531-553`） | audio 16 / decision 7 / image 12 / search 6 / transcription 8 / video 3 |
+| `embedding_models` | `:557-571` | 52 行 |
+| `quirks` / `quirk_targets` | 全量替换（`:1033-1045`） | 93 / 129 行 |
+| `fallback_config` | 补缺失行（`:855-864`） | 1034 行（每模型一行，不变式成立） |
+| `profile_models` | `ensureAllModelsInProfiles`（`:865`） | 2712 行 / 4 条链 |
 | `catalog_model_tombstones` | **不由 sync 写**，由仪表盘删除与上游 410 退役写（[model-state.ts:199-245](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L199)） | 7 行，全部 `source='upstream_eol'`、platform=`xkiro` |
-| `model_overrides` | **不由 sync 写**，sync 只刷新其基线并重放（`:815`） | **0 行**（见 §4.3） |
+| `model_overrides` | **不由 sync 写**，sync 只刷新其基线并重放（`:852`） | **0 行**（见 §4.3） |
 
 ### 2.4 物理位置随部署形态变（桌面版绕不过 `FREEAPI_DB_PATH`）
 
 | 形态 | 数据库路径 | 关键代码 |
 |---|---|---|
-| 桌面版 macOS | `~/Library/Application Support/FreeLLMAPI/freeapi.db` | `app.setName('FreeLLMAPI')` + `setPath('userData', appData/FreeLLMAPI)`（[main.ts:21-22](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/main.ts#L21)），`dbPath = path.join(app.getPath('userData'),'freeapi.db')`（[main.ts:258](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/main.ts#L258)）→ `initDb(opts.dbPath)`（[server-host.ts:128](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/server-host.ts#L128)） |
+| 桌面版 macOS | `~/Library/Application Support/FreeLLMAPI/freeapi.db` | `app.setName('FreeLLMAPI')` + `setPath('userData', appData/FreeLLMAPI)`（[main.ts:21-22](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/main.ts#L21)），`dbPath = path.join(app.getPath('userData'),'freeapi.db')`（[main.ts:258](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/main.ts#L258)）→ `initDb(opts.dbPath)`（[server-host.ts:132](file:///Users/vincent/workspace/16_AI/freellmapi/desktop/src/server-host.ts#L132)） |
 | standalone server（dev/生产同） | `server/data/freeapi.db`，或 `FREEAPI_DB_PATH` | `DB_PATH = path.resolve(__dirname,'../../data/freeapi.db')`（[db/index.ts:14-15](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/index.ts#L14)）——**基于模块自身位置，不是 cwd**，`tsx src/index.ts` 与 `node dist/index.js` 落点一致 |
 | Docker | `/app/server/data/freeapi.db`，named volume `freellmapi-data` 挂在该目录 | [Dockerfile:55](file:///Users/vincent/workspace/16_AI/freellmapi/Dockerfile#L55)、[docker-compose.yml:26-27](file:///Users/vincent/workspace/16_AI/freellmapi/docker-compose.yml#L26) |
-| CLI | **不落任何目录数据**：CLI 只走 HTTP 指向已运行的网关（`FREELLMAPI_URL`，默认 `http://localhost:3001`） | [cli/src/index.ts:52](file:///Users/vincent/workspace/16_AI/freellmapi/cli/src/index.ts#L52) |
+| CLI | **不落任何目录数据**：CLI 只走 HTTP 指向已运行的网关（`FREELLMAPI_URL`，默认 `http://localhost:3001`） | [cli/src/index.ts:53](file:///Users/vincent/workspace/16_AI/freellmapi/cli/src/index.ts#L52) |
 
 三条容易踩的优先级与副作用：
 
@@ -165,7 +165,7 @@ sequenceDiagram
 
 ### 2.5 可 grep 的第三种记录：日志
 
-`SyncResult.counts` **不落库**（只在返回体里），唯一的持久化出口是 `console.log`（[catalog-sync.ts:1075-1080](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1075)）。本机日志（2026-10-19 只读 grep）：
+`SyncResult.counts` **不落库**（只在返回体里），唯一的持久化出口是 `console.log`（[catalog-sync.ts:1112-1117](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L1112)）。本机日志（2026-10-19 只读 grep）：
 
 ```
 2026-10-15T23:44:09Z applied live v2026.10.15.c2791367: 1016 updated, 4 new, 0 removed, 93 quirks, 27 skipped (unknown platform)
@@ -178,9 +178,9 @@ sequenceDiagram
 2026-10-19T01:51:45Z re-applied cached live v2026.10.18.cbb31395 after boot
 ```
 
-从这 8 行能直接读出四件事：**每次启动必重放缓存**；重放后约 12-13 s（= `BOOT_DELAY_MS` 10 s + 网络）才可能有一次真 apply；典型一次是**几乎全表 UPDATE、几乎零增删**；`up_to_date` 与 `skipped_older` 两条路径**一行日志都不打**（`:1034-1038`、`:1057-1063`），所以本机 15:21:09 那次手点（settings 有 `last_sync_ms`，日志无对应行）只能是 `up_to_date`——版本仍是 `2026.10.18.cbb31395`。
+从这 8 行能直接读出四件事：**每次启动必重放缓存**；重放后约 12-13 s（= `BOOT_DELAY_MS` 10 s + 网络）才可能有一次真 apply；典型一次是**几乎全表 UPDATE、几乎零增删**；`up_to_date` 与 `skipped_older` 两条路径**一行日志都不打**（`:1071-1075`、`:1094-1100`），所以本机 15:21:09 那次手点（settings 有 `last_sync_ms`，日志无对应行）只能是 `up_to_date`——版本仍是 `2026.10.18.cbb31395`。
 
-另：`2026-10-18T00:08` 那条 shape 报错**没有** `: <具体问题列表>` 后缀，而工作树 `:1053` 与当前 asar 都带（`grep -ac catalogShapeProblems app.asar` = 3）。同一份日志里 10-18 21:43Z 与 10-19 01:51Z 各有一次 `[updater] … before installing v0.16.x`，所以那条来自升级前的旧构建，不能拿它当 HEAD 的行为。
+另：`2026-10-18T00:08` 那条 shape 报错**没有** `: <具体问题列表>` 后缀，而工作树 `:1090` 与当前 asar 都带（`grep -ac catalogShapeProblems app.asar` = 3）。同一份日志里 10-18 21:43Z 与 10-19 01:51Z 各有一次 `[updater] … before installing v0.16.x`，所以那条来自升级前的旧构建，不能拿它当 HEAD 的行为。
 
 ---
 
@@ -212,7 +212,7 @@ videoModels, searchEngines, decisionModels
 | `quirks` | array（93） | ✅ 全量替换两张表 | |
 | `managedPlatforms` | array\<string\> | ✅ 可选，**本机这份没有** | 目录「占了坑但这条 tier 不给行」的平台名单，用来封住内置发现 |
 
-`models[]` 每行还带一个内联 `quirks` 数组（本机 988 行里 **975 行有这个字段、其中 804 行非空**，其余 13 行连字段都不带），而 `CatalogModel` 接口（[catalog-sync.ts:96-119](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L96)）里**没有这个字段**，apply 路径也不读它（`:611-624` 的 `fields` 里没有 `quirks`）——告警只从顶层 `quirks` + `quirk_targets` 的 GLOB 选择器来。这三处冗余（`counts`/`platforms`/内联 `quirks`）是发布侧把「产品」和「传输格式」合成一份的残留，`catalogShapeProblems` 是**白名单校验**（只查它认识的字段），多余字段一律放行。
+`models[]` 每行还带一个内联 `quirks` 数组（本机 988 行里 **975 行有这个字段、其中 804 行非空**，其余 13 行连字段都不带），而 `CatalogModel` 接口（[catalog-sync.ts:133-156](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/catalog-sync.ts#L133)）里**没有这个字段**，apply 路径也不读它（`:648-660` 的 `fields` 里没有 `quirks`）——告警只从顶层 `quirks` + `quirk_targets` 的 GLOB 选择器来。这三处冗余（`counts`/`platforms`/内联 `quirks`）是发布侧把「产品」和「传输格式」合成一份的残留，`catalogShapeProblems` 是**白名单校验**（只查它认识的字段），多余字段一律放行。
 
 ### 3.2 `models[]` → `models` 表
 
@@ -228,17 +228,17 @@ videoModels, searchEngines, decisionModels
 
 | 目录字段 | 落到哪 | 转换 |
 |---|---|---|
-| `platform` + `modelId` | `models.platform` + `models.model_id` | 定位键（SELECT 用 `WHERE platform=? AND model_id=?`，`:473`） |
+| `platform` + `modelId` | `models.platform` + `models.model_id` | 定位键（SELECT 用 `WHERE platform=? AND model_id=?`，`:510`） |
 | `displayName` `intelligenceRank` `speedRank` `sizeLabel` | 同名列 | 直存 |
 | `limits.rpm/rpd/tpm/tpd` | `rpm_limit` `rpd_limit` `tpm_limit` `tpd_limit` | 拆四列，`null` 原样存 NULL |
 | `monthlyTokenBudget` `contextWindow` | 同名列 | 预算是**字符串**（`"~3M"`），不是数字 |
-| `supportsVision` `supportsTools` `enabled` | INTEGER 0/1 | `m.supportsVision ? 1 : 0`（`:622`） |
-| `modality` | **不落 `models`** | 值为 `image`/`audio` 时整条改道 `media_models`（`:548-577`） |
+| `supportsVision` `supportsTools` `enabled` | INTEGER 0/1 | `m.supportsVision ? 1 : 0`（`:659`） |
+| `modality` | **不落 `models`** | 值为 `image`/`audio` 时整条改道 `media_models`（`:585-614`） |
 | `mediaNote` | `media_models.quota_label` | 缺省存 `''` |
 | `requestStyle` | `media_models.meta_json` 的 `{"requestStyle":…}` | 没有就存 NULL，让 adapter 用默认 |
 | 内联 `quirks` | — | 丢弃 |
 
-`models.source` 由代码写死 `'catalog'`（`insertModel` 语句 `:484-491`，字面量在 `:490`；认领 discovered 走 `adoptModel`，语句在 `:483`、调用在 `:610`），目录永远不可能把一行改成 `'user'`。
+`models.source` 由代码写死 `'catalog'`（`insertModel` 语句 `:521-528`，字面量在 `:527`；认领 discovered 走 `adoptModel`，语句在 `:520`、调用在 `:647`），目录永远不可能把一行改成 `'user'`。
 
 ### 3.3 其余五张注册表 → 两张表
 
@@ -255,15 +255,15 @@ embeddings[] ──────────────────────�
 
 | 来源 | `media_models.model_id` 存什么 | `priority` 从哪来 | `meta_json` 装什么 |
 |---|---|---|---|
-| `models[]`(image/audio) | `modelId` | `intelligenceRank ?? 0`（`:564`） | 仅 `requestStyle` |
+| `models[]`(image/audio) | `modelId` | `intelligenceRank ?? 0`（`:601`） | 仅 `requestStyle` |
 | `videoModels[]` | `modelId` | `priority` | 仅 `providerModelId` |
-| `searchEngines[]` | **`engineId`**（不是 modelId，`:708`） | `priority` | `creditsPerQuery`/`features{news,answer,fullContent}`/`premiumSince` |
+| `searchEngines[]` | **`engineId`**（不是 modelId，`:745`） | `priority` | `creditsPerQuery`/`features{news,answer,fullContent}`/`premiumSince` |
 | `decisionModels[]` | `modelId` | `priority` | `contextWindow`/`premiumSince` |
 | `transcriptionModels[]` | `modelId` | `priority` | `subtitleFormats`/`maxBytes`/`requestStyle` |
 
-`embeddings[]` 的字段最规整：`family/platform/modelId/displayName/dimensions/maxInputTokens/priority/enabled/quotaLabel` 一一对到 `embedding_models` 列（`:520-534`）。目录里额外有 `premiumSince`，**列里没有**，直接丢。
+`embeddings[]` 的字段最规整：`family/platform/modelId/displayName/dimensions/maxInputTokens/priority/enabled/quotaLabel` 一一对到 `embedding_models` 列（`:557-571`）。目录里额外有 `premiumSince`，**列里没有**，直接丢。
 
-`quirks` 的结构与语义（`:88-94` + [legacy_baseline.ts:2074-2090](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrations/20260101_000000_legacy_baseline.ts#L2074)）：一条 quirk = `slug/title/body/severity`，靠 `targets[]` 的**选择器**作用到模型，两个字段任一为 `null` 即通配：
+`quirks` 的结构与语义（`:88-94` + [legacy_baseline.ts:2115-2131](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrations/20260101_000000_legacy_baseline.ts#L2115)）：一条 quirk = `slug/title/body/severity`，靠 `targets[]` 的**选择器**作用到模型，两个字段任一为 `null` 即通配：
 
 ```
 platform=null, glob=null      → 全局提示
@@ -274,12 +274,12 @@ platform=null, glob=set       → 跨平台按 id 家族命中
 
 ### 3.4 结构契约在哪里强制执行
 
-`catalogShapeProblems`（`:251-372`）与 `isCatalog`（`:376-378`）是同一个判断的两种输出，注释要求二者同步维护。要点：
+`catalogShapeProblems`（`:288-372`）与 `isCatalog`（`:413-415`）是同一个判断的两种输出，注释要求二者同步维护。要点：
 
 - 必填：`version` 是 string、`tier` ∈ {live,monthly}、`models` 与 `quirks` 是数组；否则整包拒收。
-- **两种 null 语义是两族函数**：`optStr/optNum` 只接受「字段不存在」（`quotaLabel: null` 算形状错误），`nulStr/nulNum` 连显式 `null` 也接受（`maxBytes: null` 合法）——`:267-274` 的注释明说这是在复刻改写前的 `&&` 长链，不是新设计。
+- **两种 null 语义是两族函数**：`optStr/optNum` 只接受「字段不存在」（`quotaLabel: null` 算形状错误），`nulStr/nulNum` 连显式 `null` 也接受（`maxBytes: null` 合法）——`:304-311` 的注释明说这是在复刻改写前的 `&&` 长链，不是新设计。
 - `models[]` 每行只查 6 项（platform/modelId/displayName 是 string、enabled 是 boolean、requestStyle 是 nulStr、`limits` 存在且是 object），**不查** `intelligenceRank/contextWindow/…`。所以一条缺 `contextWindow` 的行能通过校验、然后往 NOT NULL 列写 `undefined`——这一层交给 SQLite 报错、再由 `syncCatalog` 的 catch 变成 `last_error`。
-- 报错上限 `CAP = 8`（`:253`），一条坏行即否决整包，防的是垃圾 body 把 warning 撑成兆级日志。
+- 报错上限 `CAP = 8`（`:290`），一条坏行即否决整包，防的是垃圾 body 把 warning 撑成兆级日志。
 
 ### 3.5 上游：这份文档是怎么造出来的
 
@@ -287,7 +287,7 @@ platform=null, glob=set       → 跨平台按 id 家族命中
 
 两点边界（避免误读）：
 
-1. 该脚本只产出 `version/generatedAt/tier/counts/platforms/models/quirks` **七个 key**，且给 `models[]` 附上内联 `quirks`（`:114`）——**不产出** 5 个新注册表和 `managedPlatforms`。本机 live 文档却带着它们，说明线上这份不是本脚本产物。
+1. 该脚本只产出 `version/generatedAt/tier/counts/platforms/models/quirks` **七个 key**，且给 `models[]` 附上内联 `quirks`（[export-catalog.ts:114](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/scripts/export-catalog.ts#L114)）——**不产出** 5 个新注册表和 `managedPlatforms`。本机 live 文档却带着它们，说明线上这份不是本脚本产物。
 2. 脚本注释指向同级的 `../../catalog` 仓（签名在 `catalog/src/scripts/sign-catalog.ts`，「对精确字节签名」），而该目录在本机**不存在**、也不在工作区内。所以「`counts`/`platforms`/内联 `quirks` 到底谁在用、`version` 的短哈希后缀是谁加的」——**当前工作区无法确定**，本篇不作断言。
 
 ---
@@ -296,50 +296,50 @@ platform=null, glob=set       → 跨平台按 id 家族命中
 
 ### 4.1 一个事务里的六条写入流
 
-`applyCatalog` 把整段包成**单个事务**（`:444-451`，#1047），`applyCatalogInner` 按顺序跑：
+`applyCatalog` 把整段包成**单个事务**（`:481-488`，#1047），`applyCatalogInner` 按顺序跑：
 
 | # | 流 | 定位键 | 门禁（不过就 `skippedUnknownPlatform++`） | 代码 |
 |---|---|---|---|---|
-| 1 | chat：`models[]` 中 `modality` 缺省或 `text` | `(platform, model_id)` | `platform!=='custom' && hasProvider(platform)` | `:545-638` |
-| 2 | 生成式媒体：`models[]` 中 `image`/`audio` | `media_models(platform, model_id)` | `MEDIA_PLATFORMS` | `:549-577` |
-| 3 | 视频：`videoModels[]` | 同上 | `VIDEO_PLATFORMS` | `:643-671` |
-| 4 | 搜索：`searchEngines[]`（键取 `engineId`） | 同上 | `SEARCH_ENGINE_PLATFORMS` | `:677-712` |
-| 5 | 决策：`decisionModels[]` | 同上 | `DECISION_PLATFORMS` | `:716-744` |
-| 6 | 嵌入：`embeddings[]` | `embedding_models(platform, model_id)` | `EMBEDDING_PLATFORMS` | `:748-778` |
+| 1 | chat：`models[]` 中 `modality` 缺省或 `text` | `(platform, model_id)` | `platform!=='custom' && hasProvider(platform)` | `:582-675` |
+| 2 | 生成式媒体：`models[]` 中 `image`/`audio` | `media_models(platform, model_id)` | `MEDIA_PLATFORMS` | `:586-614` |
+| 3 | 视频：`videoModels[]` | 同上 | `VIDEO_PLATFORMS` | `:680-708` |
+| 4 | 搜索：`searchEngines[]`（键取 `engineId`） | 同上 | `SEARCH_ENGINE_PLATFORMS` | `:714-749` |
+| 5 | 决策：`decisionModels[]` | 同上 | `DECISION_PLATFORMS` | `:753-781` |
+| 6 | 嵌入：`embeddings[]` | `embedding_models(platform, model_id)` | `EMBEDDING_PLATFORMS` | `:785-815` |
 
-（`transcriptionModels[]` 逻辑同 3-5，门禁 `TRANSCRIPTION_PLATFORMS`，另走 `updateTranscription/insertTranscription` 把 `modality` 写死成 `'transcription'`，`:784-812`。）
+（`transcriptionModels[]` 逻辑同 3-5，门禁 `TRANSCRIPTION_PLATFORMS`，另走 `updateTranscription/insertTranscription` 把 `modality` 写死成 `'transcription'`，`:821-849`。）
 
 紧接着是不变式补齐与七类裁剪：
 
 ```
-:814  deleteTombstonedCatalogModels   只删 kind 匹配且 source='user' 的墓碑行
-:815  applyAllModelOverrides          把用户的字段级 override 重放回去
-:818-827                              给缺行的模型补 fallback_config（priority 追加到链尾）
-:828  ensureAllModelsInProfiles       按 auto_include_new_models=1 的链回填 profile_models
-:838-856                              剪：source='catalog' 且本目录不再列出的 chat 行（先删 fallback 再删 models）
-:865-874  剪：#1348 目录一旦接管某平台，该平台所有 source='discovered' 行删除
-:880-889  剪：#1516 key_id 指向已不存在 api_keys 的孤儿行（models/embedding/media 三表）
-:898-908  剪：media_models 里 image/audio（**允许列表**，不是「除了 transcription 全剪」）
-:912-953  剪：video / search / decision，各自要求本目录带上了对应快照 key
-:959-970  剪：transcription，同上
-:977-993  剪：embedding，且要求 `embeddings.length > 0`（空数组=「这份目录不管嵌入」）
-:995-1009 quirks：DELETE quirk_targets → DELETE quirks → 逐条重插（纯内容，全量替换）
+:851  deleteTombstonedCatalogModels   只删 kind 匹配且 source='user' 的墓碑行
+:852  applyAllModelOverrides          把用户的字段级 override 重放回去
+:855-864                              给缺行的模型补 fallback_config（priority 追加到链尾）
+:865  ensureAllModelsInProfiles       按 auto_include_new_models=1 的链回填 profile_models
+:875-893                              剪：source='catalog' 且本目录不再列出的 chat 行（先删 fallback 再删 models）
+:902-911  剪：#1348 目录一旦接管某平台，该平台所有 source='discovered' 行删除
+:917-924  剪：#1516 key_id 指向已不存在 api_keys 的孤儿行（models/embedding/media 三表）
+:935-945  剪：media_models 里 image/audio（**允许列表**，不是「除了 transcription 全剪」）
+:949-991  剪：video / search / decision，各自要求本目录带上了对应快照 key
+:996-1007  剪：transcription，同上
+:1014-1030  剪：embedding，且要求 `embeddings.length > 0`（空数组=「这份目录不管嵌入」）
+:1032-1046 quirks：DELETE quirk_targets → DELETE quirks → 逐条重插（纯内容，全量替换）
 ```
 
-`videoModels/searchEngines/decisionModels/transcriptionModels/embeddings` 都是**可选全量快照**：老目录不带这个 key，就完全不动这一类行；带了就把「没列出的」剪掉。`:891-897` 的注释专门警告：把媒体那条裁剪条件从允许列表放宽成 `!=`，会让一次老目录同步把全部 video 行静默删光。
+`videoModels/searchEngines/decisionModels/transcriptionModels/embeddings` 都是**可选全量快照**：老目录不带这个 key，就完全不动这一类行；带了就把「没列出的」剪掉。`:928-934` 的注释专门警告：把媒体那条裁剪条件从允许列表放宽成 `!=`，会让一次老目录同步把全部 video 行静默删光。
 
 ### 4.2 冲突裁决：谁赢
 
 | 情形 | 结果 | 代码 |
 |---|---|---|
-| 目录 `enabled=false` | **强制关**（上游已死），无视本地开 | `:627` `const enabled = m.enabled ? row.enabled : 0` |
+| 目录 `enabled=false` | **强制关**（上游已死），无视本地开 | `:664` `const enabled = m.enabled ? row.enabled : 0` |
 | 目录 `enabled=true`、本地关着 | **保持关**（读的是当前行的值） | 同一行 |
-| `models.source='user'` 撞键 | **整条跳过**：不更新、不认领、也不在裁剪候选里（裁剪只认 `source='catalog'`） | `:604`、`:844` |
-| `models.source='discovered'` 撞键 | **被目录认领**：`adoptModel` 改写成 `'catalog'`，元数据被目录覆盖 | `:610` |
-| 用户在仪表盘删过（`user` 墓碑） | 永远不写回，且 `:814` 把已复活的行再删掉 | `:585` + [model-state.ts:190-197](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L190) |
-| 上游 410/EOL 自动退役（`upstream_eol` 墓碑） | 行**保留只关**；目录若仍列出**且 enabled** 就复活 | `:593` + [model-state.ts:232-267](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L232) |
-| 用户改过某字段（`model_overrides`） | 目录先写、再把 override 盖回去；同时刷新 override 里记的基线 | `:629-630`、`:815` |
-| 目录里有、本地 provider 没有 | 跳过并计数，等应用更新后自然出现 | `:579-584` |
+| `models.source='user'` 撞键 | **整条跳过**：不更新、不认领、也不在裁剪候选里（裁剪只认 `source='catalog'`） | `:641`、`:881` |
+| `models.source='discovered'` 撞键 | **被目录认领**：`adoptModel` 改写成 `'catalog'`，元数据被目录覆盖 | `:647` |
+| 用户在仪表盘删过（`user` 墓碑） | 永远不写回，且 `:851` 把已复活的行再删掉 | `:622` + [model-state.ts:190-197](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L190) |
+| 上游 410/EOL 自动退役（`upstream_eol` 墓碑） | 行**保留只关**；目录若仍列出**且 enabled** 就复活 | `:630` + [model-state.ts:232-267](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/model-state.ts#L232) |
+| 用户改过某字段（`model_overrides`） | 目录先写、再把 override 盖回去；同时刷新 override 里记的基线 | `:666-667`、`:852` |
+| 目录里有、本地 provider 没有 | 跳过并计数，等应用更新后自然出现 | `:616-621` |
 
 `enabled` 这一行是整套「本地意志优先」的机制核心：**它不靠记录，靠读改写**。所以「关掉一个模型」这个动作，在库里根本不留痕。
 
@@ -359,7 +359,7 @@ model_overrides 行数 = 0
 
 ### 4.4 本机实测：目录 988 行，落库少了 36 行，差额 100% 可解释
 
-按 §4.1 的门禁逐条数（脚本比对 `catalog_applied_json` 与工作树 HEAD 的六个平台集合常量：[media.ts:27-40](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/media.ts#L27)、[embeddings.ts:112-124](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/embeddings.ts#L112)、[search.ts:414](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/search.ts#L414)、[decision.ts:273](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/decision.ts#L273)）：
+按 §4.1 的门禁逐条数（脚本比对 `catalog_applied_json` 与工作树 HEAD 的六个平台集合常量：[media.ts:27-40](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/media.ts#L27)、[embeddings.ts:112-124](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/embeddings.ts#L112)、[search.ts:474](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/search.ts#L474)、[decision.ts:274](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/decision.ts#L274)）：
 
 | 注册表 | 目录行数 | 门禁外（被 skip） | 应落库 | 本机该表实测 |
 |---|---|---|---|---|
@@ -382,16 +382,16 @@ model_overrides 行数 = 0
 
 ### 5.1 生效延迟：没有事件总线，全靠各缓存自己过期
 
-`catalog-sync.ts` 全文不 `emit`、不 `EventEmitter`，也不调用任何 `invalidate*()`；它对「别人」的通知只有事务内的两次直调（`:815` overrides、`:828` profile 回填）。前端那六连发 invalidate 是**浏览器侧 react-query 的事**，对服务端内存态毫无作用。真实生效延迟来自：
+`catalog-sync.ts` 全文不 `emit`、不 `EventEmitter`，也不调用任何 `invalidate*()`；它对「别人」的通知只有事务内的两次直调（`:852` overrides、`:865` profile 回填）。前端那六连发 invalidate 是**浏览器侧 react-query 的事**，对服务端内存态毫无作用。真实生效延迟来自：
 
 | 缓存 | 读什么 | TTL | 位置 |
 |---|---|---|---|
 | `chainCache` | `models ⋈ profile_models / fallback_config`——**聊天链的唯一取数路径** | **1 s** | [router.ts:1321-1332](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/router.ts#L1321) |
 | `keyCountsCache` | `api_keys` 平台计数 | 5 s | router.ts:1073-1088 |
 | `windowUsageSnapshot` | `rate_limit_usage` + keys | 5 s | [ratelimit.ts:397-474](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/ratelimit.ts#L397) |
-| headroom | provider 配额余量 | 5 s | [provider-quota.ts:479-504](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/provider-quota.ts#L479) |
+| headroom | provider 配额余量 | 5 s | [provider-quota.ts:487-512](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/provider-quota.ts#L487) |
 | `statsCache` / `keyStatsCache` | `requests` 衰减统计（不是目录表，但限额变化会影响 headroom 分母） | 60 s | router.ts:789,821-849 |
-| `appliedPlatformsCache` | `catalog_applied_json` 的平台集合 | 无 TTL，按整行字符串等值比较失效 | `:420-442` |
+| `appliedPlatformsCache` | `catalog_applied_json` 的平台集合 | 无 TTL，按整行字符串等值比较失效 | `:457-479` |
 | settings（tier/version/lastError/license 状态） | `getSetting` | **无缓存**，每次一条 SQL | [db/index.ts:239-243](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/index.ts#L239) |
 
 结论：**同步写完 ≈ 1 秒后聊天请求就用上新链**，个别护栏口径最多 5 秒，打分统计最多 60 秒。按 model id 直接解析的请求（`routes/proxy.ts:1322-1326` 这类）每请求直查，即时生效。
@@ -403,25 +403,25 @@ initDb → runMigrationsSync(按 filename 记账，未跑过的才跑)
    ↓     （新装/升级会一次跑完全部 baseline，含 migrateModelsV1..V24 的 INSERT OR IGNORE）
 listen 成功 → onReady:
    startHealthChecker → startCatalogSync:
-        ①（同进程、同步）reapplyCachedCatalog()   :1221 → :1192
+        ①（同进程、同步）reapplyCachedCatalog()   :1258 → :1229
         ② after 10s / every 12h: refreshLicenseStatus + syncCatalog
 ```
 
-`reapplyCachedCatalog` 存在的理由写在它自己的注释里（`:1176-1191`）：boot 期间 migration 会把**出厂地板**重新铺回来（catalog 已删掉的基线模型会被 `INSERT OR IGNORE` 复活），而 10 秒后的网络同步多半打回 304、**不会** apply，于是必须用本地缓存把目录权威重新压回去；这也顺带做到**离线可复现**。三个边界：
+`reapplyCachedCatalog` 存在的理由写在它自己的注释里（`:1213-1228`）：boot 期间 migration 会把**出厂地板**重新铺回来（catalog 已删掉的基线模型会被 `INSERT OR IGNORE` 复活），而 10 秒后的网络同步多半打回 304、**不会** apply，于是必须用本地缓存把目录权威重新压回去；这也顺带做到**离线可复现**。三个边界：
 
-- 缓存文档不存在但有 `applied_version`（升级前的老装）→ **删掉 version**，逼下一次轮询走全量（`:1196-1198`）。
-- 缓存文档形状不合法或版本低于地板 → 直接放弃重放，等下次网络同步（`:1202`）。
-- 重放**故意**带着「这不是新证据」的身份：`catalogBringsNewEvidence()`（`:463-465`）在重放时为 false，因此重放**不会**撤销启动期间发生的上游 410 退役。本机那 7 条 `xkiro` 的 `upstream_eol` 墓碑与此一致，但也恰好无法证伪——目录把同名模型写的是 `enabled=false`，`:593` 的 `if (m.enabled && newEvidence)` 本来就不进（**该分支未实测，仅源码推断**）。
+- 缓存文档不存在但有 `applied_version`（升级前的老装）→ **删掉 version**，逼下一次轮询走全量（`:1233-1235`）。
+- 缓存文档形状不合法或版本低于地板 → 直接放弃重放，等下次网络同步（`:1239`）。
+- 重放**故意**带着「这不是新证据」的身份：`catalogBringsNewEvidence()`（`:500-502`）在重放时为 false，因此重放**不会**撤销启动期间发生的上游 410 退役。本机那 7 条 `xkiro` 的 `upstream_eol` 墓碑与此一致，但也恰好无法证伪——目录把同名模型写的是 `enabled=false`，`:630` 的 `if (m.enabled && newEvidence)` 本来就不进（**该分支未实测，仅源码推断**）。
 
 ⚠️ 需要纠正 `05-catalog-sync.md` §5 的表述（原文「Migrations run on every boot and re-assert the bundled baseline」）：**runner 按文件名记账，同一文件不会重跑**（[runner.ts:153-171](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/migrate/runner.ts#L153)）。漂移真正的来源是**应用升级带进新迁移文件**——本机 `migrations` 表给了硬证据：`20261016_000001_decision_requests` 等**三个**文件的 `applied_at` 都是 `2026-10-18 23:49:30`（= `[updater] … before installing v0.16.0` 后那次重启，同一秒紧接一条 `re-applied cached … after boot`），`20261017_233153_request_failure_attribution` 的 `applied_at` 是 `2026-10-19 01:51:45`（= 装 v0.16.3 后 5 秒的那次重启，同样同秒重放）。也就是说**「migration 铺地板」和「缓存重放抹平」只在升级那一次启动里同场出现**，顺序是 migration 在前、重放在后。
 
 ### 5.3 写放大：为什么 apply 必须是单事务
 
-`:444-451` 的注释记录了事故原型：几百条语句在 WAL 下各自 commit+fsync、且跑在事件循环上，导致 12 小时一次的同步能把**所有在途请求**（含一个只查 3 条 SQL 的 profile-activate POST）冻住几分钟。所以 §4.1 那一大段是**一次提交**：外部要么看到旧目录要么看到新目录，中途崩溃整体回滚（settings 的三条 applied_* 在事务返回之后才写，`:1067-1074`，因此不会出现「表改了一半但 version 已更新」）。代价反过来是：一次 apply 持锁写上千行，`busy_timeout=5000`（[db/index.ts:87](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/index.ts#L87)）内抢不到锁的并发写会失败。
+`:481-488` 的注释记录了事故原型：几百条语句在 WAL 下各自 commit+fsync、且跑在事件循环上，导致 12 小时一次的同步能把**所有在途请求**（含一个只查 3 条 SQL 的 profile-activate POST）冻住几分钟。所以 §4.1 那一大段是**一次提交**：外部要么看到旧目录要么看到新目录，中途崩溃整体回滚（settings 的三条 applied_* 在事务返回之后才写，`:1104-1111`，因此不会出现「表改了一半但 version 已更新」）。代价反过来是：一次 apply 持锁写上千行，`busy_timeout=5000`（[db/index.ts:87](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/db/index.ts#L87)）内抢不到锁的并发写会失败。
 
 ### 5.4 免费与 Premium 的差别只在服务端给哪一份
 
-本地代码**不做任何 tier 判断**：`syncCatalog` 只是「有 key 就 `Authorization: Bearer`，没有就不带」（`:1027-1029`）。差异全在 `/v1/latest` 返回的那份文档里——本机 live 文档 988 条 `models[]`，其中 5 个新注册表带 `premiumSince` 字段（如 `searchEngines[].premiumSince = 2026-09-12`），README 口径是「模型进入 live 后 30 天才进月度快照，免费装当前落后约 303 个模型」（[README.md:243-246](file:///Users/vincent/workspace/16_AI/freellmapi/README.md#L243)）。**30 天这道门不在本仓**，未实测。
+本地代码**不做任何 tier 判断**：`syncCatalog` 只是「有 key 就 `Authorization: Bearer`，没有就不带」（`:1064-1084`）。差异全在 `/v1/latest` 返回的那份文档里——本机 live 文档 988 条 `models[]`，其中 5 个新注册表带 `premiumSince` 字段（如 `searchEngines[].premiumSince = 2026-09-12`），README 口径是「模型进入 live 后 30 天才进月度快照，免费装当前落后约 303 个模型」（[README.md:243-246](file:///Users/vincent/workspace/16_AI/freellmapi/README.md#L243)）。**30 天这道门不在本仓**，未实测。
 
 因此「点一次检查更新」对两档的意义不同：免费装拿到的是月度快照（12 h 一轮，绝大多数轮次都是 304，一月才真换一次版），付费装拿到的是近乎逐日更新的 live——本机日志里 `v2026.10.14 / .15 / .16 / .18` 各有一次 apply。UI 上唯一可见的区别是那颗绿点（`appliedTier === 'live'`，[PremiumPage.tsx:83](file:///Users/vincent/workspace/16_AI/freellmapi/client/src/pages/PremiumPage.tsx#L83)）和版本徽标；`appliedVersion` 为空时显示「内置」，即「还没应用过任何目录，用的全是出厂 migration 地板」。
 
@@ -457,21 +457,21 @@ stateDiagram-v2
     Error --> [*]: 写 catalog_last_error，UI 显示「上次同步问题」
 ```
 
-对运行的影响有明确边界：**任何失败都保留上一份目录**，不会清空、不会降级；`last_error` 只是字符串，不参与路由决策。要特别注意 `skipped_older`：当**新装/升级后的地板比月度快照新**时，免费装会连续几天每次同步都「拿到一份但拒绝应用」，症状是版本号长期显示「内置」而日志一个字都不打（`:1057-1063` 无 log）。
+对运行的影响有明确边界：**任何失败都保留上一份目录**，不会清空、不会降级；`last_error` 只是字符串，不参与路由决策。要特别注意 `skipped_older`：当**新装/升级后的地板比月度快照新**时，免费装会连续几天每次同步都「拿到一份但拒绝应用」，症状是版本号长期显示「内置」而日志一个字都不打（`:1094-1100` 无 log）。
 
 ### 5.7 关掉它
 
-`CATALOG_SYNC_DISABLED === '1'` 时 `startCatalogSync` **在最开头就 return**（`:1217-1220`），而 `reapplyCachedCatalog()` 在它**之后**（`:1221`）。也就是说这个开关关掉的不只是网络轮询，还有关机后重启时的目录重放——长期开着它，DB 会随每次升级的新 baseline 慢慢漂回出厂态。判定是严格 `=== '1'`，写 `true` 无效。另外 `stopCatalogSync()`（`:1231-1240`）只撤 timer，没有 HTTP 入口暴露它。
+`CATALOG_SYNC_DISABLED === '1'` 时 `startCatalogSync` **在最开头就 return**（`:1254-1257`），而 `reapplyCachedCatalog()` 在它**之后**（`:1258`）。也就是说这个开关关掉的不只是网络轮询，还有关机后重启时的目录重放——长期开着它，DB 会随每次升级的新 baseline 慢慢漂回出厂态。判定是严格 `=== '1'`，写 `true` 无效。另外 `stopCatalogSync()`（`:1268-1277`）只撤 timer，没有 HTTP 入口暴露它。
 
 ### 5.8 目录与本地自动发现的领地划分
 
-`managedPlatforms` + `catalogPlatforms()`（`:408-418`）合起来定义「这个平台归目录管」：任一注册表里有它一行（**哪怕 `enabled=false`**——`:860-861` 的注释写得很直白：「a disabled row is still an audit verdict」），或它只出现在 `managedPlatforms` 名单里（`:223-227`：这类平台被**故意**保持零行）。`:424-427` 进一步定性：「是**审计过的目录**、不是上游 `/models` 列表，决定什么东西能被路由」。`appliedCatalogPlatforms` 把集合交给内置模型发现（[builtin-model-discovery.ts:84](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/builtin-model-discovery.ts#L84)），后果是：**上游 `/models` 列出来的东西不能自己进链**，只能是 `source='discovered'` 的临时补丁，且目录一接管就被 §4.1 的 `:865-874` 清掉。排查「某平台明明有免费模型却进不了链」时，先看的是这份缓存的平台集合，而不是 provider 的 models 接口。
+`managedPlatforms` + `catalogPlatforms()`（`:445-455`）合起来定义「这个平台归目录管」：任一注册表里有它一行（**哪怕 `enabled=false`**——`:894-901` 的注释写得很直白：「a disabled row is still an audit verdict」），或它只出现在 `managedPlatforms` 名单里（`:260-265`：这类平台被**故意**保持零行）。`:461-465` 进一步定性：「是**审计过的目录**、不是上游 `/models` 列表，决定什么东西能被路由」。`appliedCatalogPlatforms` 把集合交给内置模型发现（[builtin-model-discovery.ts:84](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/services/builtin-model-discovery.ts#L84)），后果是：**上游 `/models` 列出来的东西不能自己进链**，只能是 `source='discovered'` 的临时补丁，且目录一接管就被 §4.1 的 `:865-874` 清掉。排查「某平台明明有免费模型却进不了链」时，先看的是这份缓存的平台集合，而不是 provider 的 models 接口。
 
 ---
 
 ## 6. 别和 Settings 里那颗「Check for updates」混
 
-`settings.checkForUpdates`（en.json:154，与 premium 同名不同 key）走的是**另一条完全不同的路**：`/api/update/release`（[routes/update.ts:584](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/routes/update.ts#L584)）、`/check`（`:601`）、`/status`（`:635`）、`/apply`（`:664`），由 [app.ts:276](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/app.ts#L276) 挂载；对端是 **GitHub**（`api.github.com/repos/…/compare/<sha>...<target>`，失败回退 `commits/main.atom`），产出的是「有没有新版本安装包」，**一个模型行都不写**；开关是 `settings.update_check_enabled`（本机 = `1`），入口是导航栏的更新药丸——药丸只发 `OPEN_UPDATES_EVENT`（[App.tsx:246-252](file:///Users/vincent/workspace/16_AI/freellmapi/client/src/App.tsx#L246)），真正渲染面板的是 `UpdatesDialog`（`:404`）。区分口诀：**改数据的是 Premium，改二进制的是 Settings。**
+`settings.checkForUpdates`（en.json:154，与 premium 同名不同 key）走的是**另一条完全不同的路**：`/api/update/release`（[routes/update.ts:584](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/routes/update.ts#L584)）、`/check`（`:601`）、`/status`（`:635`）、`/apply`（`:664`），由 [app.ts:284](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/app.ts#L284) 挂载；对端是 **GitHub**（`api.github.com/repos/…/compare/<sha>...<target>`，失败回退 `commits/main.atom`），产出的是「有没有新版本安装包」，**一个模型行都不写**；开关是 `settings.update_check_enabled`（本机 = `1`），入口是导航栏的更新药丸——药丸只发 `OPEN_UPDATES_EVENT`（[App.tsx:246-252](file:///Users/vincent/workspace/16_AI/freellmapi/client/src/App.tsx#L246)），真正渲染面板的是 `UpdatesDialog`（`:404`）。区分口诀：**改数据的是 Premium，改二进制的是 Settings。**
 
 ---
 
@@ -507,16 +507,16 @@ grep -ac -- "catalogShapeProblems" /Applications/FreeLLMAPI.app/Contents/Resourc
 
 ## 8. 陷阱清单
 
-1. **「检查更新」不看有没有新版**：`force=true` 跳过 `since`，每次手点都是 1.3 MB 全量下载 + 验签，只是版本相同时不落库、不打日志（`:1030`、`:1065`）。
+1. **「检查更新」不看有没有新版**：`force=true` 跳过 `since`，每次手点都是 1.3 MB 全量下载 + 验签，只是版本相同时不落库、不打日志（`:1067`、`:1102`）。
 2. **点了按钮不代表成功或失败会被告诉你**：所有同步异常都以 200 返回，全局 toast 只监听 mutation 错误；唯一出口是 `catalog_last_error` 渲染的那行小字。
 3. **`up_to_date` / `skipped_older` 完全静默**：想在日志里数同步次数会漏掉大半，得看 `catalog_last_sync_ms`。
 4. **`counts.updated` ≈ 上千是常态**：它是六条流 UPDATE 行数之和，不是「异常大规模改写」。
 5. **一次 apply 是单个长事务**：中途并发写要抢 `busy_timeout=5000`；历史上正是这个设计缺失把网关冻了几分钟（#1047）。
-6. **目录的 `enabled=true` 从不复活你关掉的模型，`false` 一定关掉你开着的**：而且这个「本地禁用」不留任何 override 记录，纯靠 `:627` 读改写。
-7. **`upstream_eol` 墓碑 ≠ 删除**：行留着、只关，且重启后可能因重放被重新打开——目录把它写成 `enabled=true` 时才会，而这需要 `newEvidence`（`:593`、`catalogBringsNewEvidence`）。
+6. **目录的 `enabled=true` 从不复活你关掉的模型，`false` 一定关掉你开着的**：而且这个「本地禁用」不留任何 override 记录，纯靠 `:664` 读改写。
+7. **`upstream_eol` 墓碑 ≠ 删除**：行留着、只关，且重启后可能因重放被重新打开——目录把它写成 `enabled=true` 时才会，而这需要 `newEvidence`（`:630`、`catalogBringsNewEvidence`）。
 8. **`CATALOG_SYNC_DISABLED=1` 连「离线重放缓存」一起关掉**，不只是关网络；长跑会让 DB 漂回出厂地板。而且值必须**恰好是 `'1'`**。
-9. **`source='discovered'` 是租来的**：目录一旦提到该平台，这些行整批删除（`:865-874`）；手工加的平台请走 custom / `source='user'`。
-10. **版本比较是字符串比较**：`catalog.version < MIN_CATALOG_VERSION`（`:1057`）靠 `YYYY.MM.DD` 定宽补零成立；发布侧格式一变就会静默判成「过旧」。
+9. **`source='discovered'` 是租来的**：目录一旦提到该平台，这些行整批删除（`:902-911`）；手工加的平台请走 custom / `source='user'`。
+10. **版本比较是字符串比较**：`catalog.version < MIN_CATALOG_VERSION`（`:1094`）靠 `YYYY.MM.DD` 定宽补零成立；发布侧格式一变就会静默判成「过旧」。
 11. **1.3 MB 的 settings 行是热读对象**：`appliedCatalogPlatforms` 每次调用都把整行读出来做字符串等值比对；`cachedCatalogDefaults` 在仪表盘每次带 `baselineRow` 的 PATCH 里 `JSON.parse` 一整份。
 12. **目录里的 `counts`/`platforms`/`models[].quirks` 三处是死数据**：网关代码一个都不读（`counts` 只被发布脚本自己的日志行读，[export-catalog.ts:143-145](file:///Users/vincent/workspace/16_AI/freellmapi/server/src/scripts/export-catalog.ts#L143)），别按它们判断同步结果——要数同步结果就看关系表或日志。
 13. **`quirks` 表在 HEAD 没有任何展示出口**：唯一的读取 helper 只被发布脚本调用（§9），README/UI 文案里的「quirk 修复」当前只体现为限额与开关的变化。
@@ -530,7 +530,7 @@ grep -ac -- "catalogShapeProblems" /Applications/FreeLLMAPI.app/Contents/Resourc
 | 位置 | 原文 | 工作树 HEAD 实际 |
 |---|---|---|
 | 05 §8 | 「Dashboard surfaces blockers/warnings for affected models」 | `resolveQuirksByModel` / `listQuirkDefinitions` 的调用方只有 `server/src/scripts/export-catalog.ts:85-86` 与单测；`server/src/routes/` 无一处读 `quirks`，`client/src` 全库 grep `quirk` 只命中 i18n 文案与一条注释。**未找到仪表盘展示路径。** |
-| 05 §2 | `Catalog` 接口只列 6 个顶层 key | 类型里其实有 `videoModels/searchEngines/decisionModels/managedPlatforms`（`:214-229`），且真实文档还多出 `counts/platforms/models[].quirks`（§3.1）。 |
+| 05 §2 | `Catalog` 接口只列 6 个顶层 key | 类型里其实有 `videoModels/searchEngines/decisionModels/managedPlatforms`（`:251-266`），且真实文档还多出 `counts/platforms/models[].quirks`（§3.1）。 |
 | 05 §5 | 「Migrations run on every boot」 | 迁移按 filename 记账，同一文件不重跑；重跑来源是升级引入新迁移文件（§5.2）。 |
 
 ---
