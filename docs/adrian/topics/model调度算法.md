@@ -387,15 +387,15 @@ runFallbackLoop(hooks)                     外层：开 attempt trace，响应�
 
 ```
 for attempt in 0..maxRetries-1:
-  ├ ① attempt>0 且 clientGone()            → 直接 return，不渲染任何东西（socket 已没了）    :1423
+  ├ ① attempt>0 且 clientGone()            → 直接 return，不渲染任何东西（socket 已没了）    :1428
   ├ ② route = hooks.route(attempt)
-  │     └ 抛 RouteError = 一次候选都发不出去 :1430
-  │           ├ 基础预算已耗尽 → timedOut 耗尽 :1434
-  │           └ 否则 onRoutingExhausted（零 attempt 分支，走 diagnostics）    :1448
-  ├ ③ 选完端点后才算预算：budgetMs = attempt>1 ? getEndpointTimeBudgetMs(base, platform, endpointScope) : base   :1459
-  │     attempt>1 且 Date.now()-startedAt >= budgetMs → timedOut 耗尽，return   :1465
-  ├ ④ 为"静默窗口"装 hedge 定时器（剩余预算到点 → abortInFlight()）    :1504-1511
-  ├ ⑤ outcome = await withKeyProxy(route.proxyUrl, () => hooks.dispatch(route, attempt, {disarmHedge}))   :1531
+  │     └ 抛 RouteError = 一次候选都发不出去 :1434
+  │           ├ 基础预算已耗尽 → timedOut 耗尽 :1439
+  │           └ 否则 onRoutingExhausted（零 attempt 分支，走 diagnostics）    :1453
+  ├ ③ 选完端点后才算预算：budgetMs = attempt>1 ? getEndpointTimeBudgetMs(base, platform, endpointScope) : base   :1463
+  │     attempt>1 且 Date.now()-startedAt >= budgetMs → timedOut 耗尽，return   :1468
+  ├ ④ 为"静默窗口"装 hedge 定时器（剩余预算到点 → abortInFlight()）    :1520-1528
+  ├ ⑤ outcome = await withKeyProxy(route.proxyUrl, () => hooks.dispatch(route, attempt, {disarmHedge}))   :1536
   ├ ⑥ catch：按顺序判 5 类（§5.4）
   └ ⑦ finally：清 hedge 定时器 + route.release()（在途并发租约，每个出口都过这里，不可能泄漏）
 
@@ -452,21 +452,21 @@ ownedWholeBudget = attemptElapsedMs >= budgetMs × 0.75
 阶梯的"记账"半边（返回 `true` = 这次失败被豁免冷却与惩罚，熔断器随之不计它，保持口径一致）。顺序即优先级：
 
 ```
-① 模型级判决 → skipModels.add        :449   404 上游已删 / 403 不在这个 tier / 413 上下文放不下 / skipModelForRequest
-② model_not_found 按平台计数          :463-468  同平台第 3 个不同模型 → skipPlatforms（custom 端点行豁免）
-③ 退役信号 noteModelRetirementSignal  :475   唯一可能跨请求生效的排除
-④ 请求体积回填 observedTotalTokens     :479-490  下一跳的硬闸据此提前剔除
-⑤ skipKeys.add 本次失败的 key          :494
-⑥ 平台级错误 → skipPlatforms           :503   5xx / 超时 / 传输 / 降级
-⑦ context-too-large → learnLimit + learnContextWindow 后 return :512-514   不进冷却、不加 penalty
-⑧ 输出上限分支                         :520-531  首次学到→skipKeys.delete；已生效仍被拒→skipModels
-⑨ skipBench 豁免（streak < 3）         :533
-⑩ setCooldown(decision)               :535   → §6.2
-⑪ 流截断 streak ≥ 3 → 5min bench        :542-553
-⑫ 工具拒绝记账 noteToolRejection       :565-568
-⑬ 账户级 benchKeyAcrossPlatform        :580-590
-⑭ providerMoment ? 只躲 key，不动模型账本 :597-605
-⑮ noteModelFailure + 无兄弟 key 才加 penalty :602-612
+① 模型级判决 → skipModels.add        :462   404 上游已删 / 403 不在这个 tier / 413 上下文放不下 / skipModelForRequest
+② model_not_found 按平台计数          :475-481  同平台第 3 个不同模型 → skipPlatforms（custom 端点行豁免）
+③ 退役信号 noteModelRetirementSignal  :488   唯一可能跨请求生效的排除
+④ 请求体积回填 observedTotalTokens     :500-506  下一跳的硬闸据此提前剔除
+⑤ skipKeys.add 本次失败的 key          :507
+⑥ 平台级错误 → skipPlatforms           :516   5xx / 超时 / 传输 / 降级
+⑦ context-too-large → learnLimit + learnContextWindow 后 return :524-528   不进冷却、不加 penalty
+⑧ 输出上限分支                         :537-545  首次学到→skipKeys.delete；已生效仍被拒→skipModels
+⑨ skipBench 豁免（streak < 3）         :547
+⑩ setCooldown(decision)               :549   → §6.2
+⑪ 流截断 streak ≥ 3 → 5min bench        :559-572
+⑫ 工具拒绝记账 noteToolRejection       :580-586
+⑬ 账户级 benchKeyAcrossPlatform        :597-607
+⑭ providerMoment ? 只躲 key，不动模型账本 :614-615
+⑮ noteModelFailure + 无兄弟 key 才加 penalty :619-630
 ```
 
 （⑦⑧ 两个分支都 `return false` 提前退出，⑨ 豁免时 `return true`，所以**只有走到 ⑩ 之后的失败才会被记账到 ⑪⑫⑬⑭⑮** —— 一次带 `tools` 的请求如果被 413 挡掉，不会进工具拒绝账本，这正是"只有最终分类才算"的意图。）
@@ -504,7 +504,7 @@ ownedWholeBudget = attemptElapsedMs >= budgetMs × 0.75
 | `start_offset_ms` / `duration_ms` | 从阶梯起点到这次 dispatch 的偏移 / 这次跑了多久（流式 `ok` 算到响应结束，那就是这次尝试的全部时长） |
 | `error_summary` | 脱敏（密钥洗掉、200 字上限）的错误摘要；`ok`/`committed` 为 NULL |
 
-**落库时机是刻意的**：`runFallbackLoop` 的 `finally` 里一次事务批量 INSERT —— 响应已经发给客户端，所以写库**不在延迟路径上**。失败类用 `classifyAttemptError`（`:720`，13 类）。顺序上有两个坑要注意：`context_too_large` **判在** `provider_bad_request` **之前**（OpenAI 兼容的上下文错误正文带着 400），而降级部署的 400（NVIDIA NIM #522）**归 `upstream_error`** 而不是 `provider_bad_request`，否则轨迹会把 provider 容量问题写成请求形状问题。
+**落库时机是刻意的**：`runFallbackLoop` 的 `finally` 里一次事务批量 INSERT —— 响应已经发给客户端，所以写库**不在延迟路径上**。失败类用 `classifyAttemptError`（`:737`，13 类）。顺序上有两个坑要注意：`context_too_large` **判在** `provider_bad_request` **之前**（OpenAI 兼容的上下文错误正文带着 400），而降级部署的 400（NVIDIA NIM #522）**归 `upstream_error`** 而不是 `provider_bad_request`，否则轨迹会把 provider 容量问题写成请求形状问题。
 
 **被跳过的候选从不入库**。`routeRequest` 的 `diag[]`（"ruled out earlier this request" / "no vision support" / "context … < estimated …" / "already-failed-this-request"…）只作为文本进耗尽摘要（`summarizeExhaustion`，§6.3 提过它的分桶缺 `custom-key-mismatch` 一支）。所以 **`request_attempts` 不能反推排序，只能反推谁真跑过**（§8 第 10 条）。
 
@@ -658,7 +658,7 @@ UPDATE models SET source='user', enabled=1 WHERE id = <model_db_id>;
 | 段 | 删除范围 |
 |---|---|
 | custom 端点 | 先 `recordCustomModelTombstone`（防下轮同步注册回来），再 `DELETE FROM fallback_config / models / embedding_models / media_models WHERE platform='custom' AND key_id=?`；最后一个 custom key 被删时整体清扫 `key_id IS NULL` 的遗留行 |
-| 任意平台 | `keys.ts:1803-1806`：`DELETE FROM fallback_config WHERE model_db_id IN (SELECT id FROM models WHERE key_id = ?)` + `DELETE FROM models WHERE key_id = ?` + embedding/media 同键行（#1516） |
+| 任意平台 | `routes/keys.ts:1823-1826`：`DELETE FROM fallback_config WHERE model_db_id IN (SELECT id FROM models WHERE key_id = ?)` + `DELETE FROM models WHERE key_id = ?` + embedding/media 同键行（#1516） |
 
 共享的目录行（`key_id IS NULL`）不受影响；目录 prune 也只动 `key_id IS NULL`。
 
@@ -719,7 +719,7 @@ UPDATE models SET source='user', enabled=1 WHERE id = <model_db_id>;
 12. **`custom-key-mismatch` 会被 UI 说成"不可用"** —— 它在 `fallback-loop` 归入 `'config'`（→ 503），但 `summarizeExhaustion` 的分桶列表里没有它的分支（`no usable key configured` 只匹配 `no enabled+healthy key|no usable key|decrypt-error`），于是掉进最后的 `else bump('unavailable')`，文案变成"请添加更多 API key"，而真相是"你已有的 key 被 `model_scope_json` 挡掉了"。**（判定为产品缺陷，当前仍未修复。）**
 13. **12 小时的目录同步覆盖的不只是元数据，还覆盖 `enabled`，而且是单向的**（§6.6）—— `m.enabled ? row.enabled : 0`：**目录标禁 → 该行必被刷 0，手改打开也撑不过下一次 apply；目录标启 → 只保留行现值，不会把 0 抬回 1**。于是一次目录判死是棘轮。这一切只发生在**目录拥有**的行上：`source='user'` 与 custom 端点行永远不会被同步写。要保留一条被判死但确实能服务的 leg 是**改 source，不是翻开关**。
 14. **客户端点名（pin）不能捞出上游已退役的模型** —— 墓碑 `source === 'upstream_eol'` 时注入被拒（§4 ③）。用 `model=<具体 id>` 打一个 410 退役模型会直接顺延到链的其余部分。**排查"点名却不服务"时先看墓碑表**（`getCatalogModelTombstone`）。
-15. **删一把 API key 会删掉模型行、链条目和它们的全部实测样本** —— `keys.ts:1803-1806`（任意平台的 `key_id` 绑定行，#1516）。这是唯一让候选集"整行消失"的运营动作（§6.8）。
+15. **删一把 API key 会删掉模型行、链条目和它们的全部实测样本** —— `routes/keys.ts:1823-1826`（任意平台的 `key_id` 绑定行，#1516）。这是唯一让候选集"整行消失"的运营动作（§6.8）。
 16. **输出上限的学习值既不在 DB、也不在 `models`** —— 它是 `lib/output-cap.ts` 的内存 Map，按 `(platform, model_id, endpoint_scope)` 键，**重启清零**（§6.4c）。同一个模型经不同中继各有一份上限，所以"这个模型被截断了但库里没记录"是正常状态。
 17. **`min_context_window` 是池级硬门，不是请求级**（#1445）—— `fitsContextWindow`/`fitsContextWindowStrict` 都会先过 `passesContextWindowFloor`：窗口低于运营设定的预设（如 `128k`）的模型**从每条链里整个出局**，与本次请求大小无关；窗口 NULL（未知）永远放行。排查"某小窗口模型死活不被选中"时，先 `SELECT value FROM settings WHERE key='min_context_window'` 看是不是池底设高了。
 18. **开启 `decision` 策略不等于"按请求换算法"** —— 它只换预设权重向量（§4.0），能力闸和回退链不变；任何不确定（超时、低置信、无 key）一律 `balanced`。判断它有没有真在决策，看响应头 `X-FreeLLM-Routing-Strategy` 的 `fallback=` 尾巴。
@@ -754,7 +754,7 @@ flowchart LR
         CW["learnContextWindowFromError<br/>400 文本→只降不升改 context_window"]
         OC[["learnOutputCapFromError<br/>内存 · 按端点 · 重启清零"]]
     end
-    DK["删除 API key<br/>keys.ts:1803-1806"]
+    DK["删除 API key<br/>routes/keys.ts:1823-1826"]
     PMA["provider-moment 归因<br/>打 requests.failure_attribution"]
     DR["决策模型<br/>media_models(modality=decision)"]
     CS["目录同步 12h<br/>覆盖元数据 + 单向覆盖 enabled<br/>只动 source=catalog"] --> M
@@ -794,32 +794,32 @@ flowchart LR
 
 ---
 
-## 11. 源码索引（绝对行号，checkout `c45fa7ef`）
+## 11. 源码索引（绝对行号，按当前工作树）
 
 ```
 server/src/services/router.ts:269              rateLimitPenalties Map（内存）
 server/src/services/router.ts:272-276          PENALTY_PER_429=3 / PENALTY_PER_FAIL=1 / MAX_PENALTY=10 / DECAY 2min
 server/src/services/router.ts:285-336          recordModelFailure / recordRateLimitHit / recordSuccess / getPenalty
-server/src/services/router.ts:84-115           summarizeExhaustion 分桶（缺 custom-key-mismatch）
+server/src/services/router.ts:84-131           summarizeExhaustion 分桶（缺 custom-key-mismatch）
 server/src/services/router.ts:447-478          PROVIDER_MOMENT_ATTRIBUTION_KEY / isProviderMomentAttributionEnabled / failureAttributionFor（#1347 新）
 server/src/services/router.ts:509-513          EXPLORE_CHANCE=0.1 / EXPLORE_MIN_SAMPLES=5 / VALID_STRATEGIES(含 decision)
 server/src/services/router.ts:515-526          getRoutingStrategy / setRoutingStrategy
-server/src/services/router.ts:546 / 610        getPeakHoursConfig / getCustomWeightsserver/src/services/router.ts:733              activeCommunityPrior
+server/src/services/router.ts:546 / 610        getPeakHoursConfig / getCustomWeights · server/src/services/router.ts:733              activeCommunityPrior
 server/src/services/router.ts:752-770          weightsWithPeak（decision→balanced）/ effectiveRoutingStrategy（读 client-context）/ weightsFor
 server/src/services/router.ts:787-789          WINDOW_MS=7d / HALF_LIFE_DAYS=2 / CACHE_TTL_MS=60s
 server/src/services/router.ts:825              decayWeight
 server/src/services/router.ts:848-985          refreshStatsCache（864 pmExcluded、877-879 buckets SQL、902-903 addBucket、985 尾部节流回写）
-server/src/services/router.ts:1011-1055        SPEED_RANK_MIN_SAMPLES=20 / 10min 节流 / writeObservedSpeedRanks
-server/src/services/router.ts:1073-1088        usableKeyCountsByPlatform（5s TTL）
-server/src/services/router.ts:1091-1160        scoreChainEntry（三轴 + 两乘数 + env veto；sampleBeta 1108、headroom min 1147、combineScore 1154）
-server/src/services/router.ts:1167-1202        applyReliabilityFloor
-server/src/services/router.ts:1204-1275        orderChain（1208 priority 密集重编号分支 / 1249 任务偏移 / 1258 地板 / 1270 排序）
-server/src/services/router.ts:1322-1410        CHAIN_CACHE_TTL_MS=1s / getActiveChain / getChainByProfileName / getChainByGlobalSort
-server/src/services/router.ts:1430 / 1474      "has no enabled models"（profile 激活 / auto:<name> 空链）
-server/src/services/router.ts:1582-1677        selectKeyForModel 扫描（1655 custom-key-mismatch / 1660 cooldown note）
-server/src/services/router.ts:1864-1890        CONTEXT_WINDOW_SAFETY_FACTOR / fitsContextWindowStrict / fitsContextWindow（均过 passesContextWindowFloor）
-server/src/services/router.ts:1914-1929        rowFitsRequestSize / pinnedModelFitsRequestSize
-server/src/services/router.ts:2163-2262        routeRequest（2167 刷统计 / 2169 enabled 过滤 / 2171 orderChain / 2189 探索 / 2222-2259 sticky+pin+retiredUpstream / 2261 平台无 key 预剔除）
+server/src/services/router.ts:1011-1052        SPEED_RANK_MIN_SAMPLES=20 / 10min 节流 / writeObservedSpeedRanks
+server/src/services/router.ts:1073-1087        usableKeyCountsByPlatform（5s TTL）
+server/src/services/router.ts:1091-1158        scoreChainEntry（三轴 + 两乘数 + env veto；sampleBeta 1108、headroom min 1147、combineScore 1154）
+server/src/services/router.ts:1167-1189        applyReliabilityFloor
+server/src/services/router.ts:1204-1272        orderChain（1208 priority 密集重编号分支 / 1249 任务偏移 / 1258 地板 / 1270 排序）
+server/src/services/router.ts:1325-1406        CHAIN_CACHE_TTL_MS=1s / getActiveChain / getChainByProfileName / getChainByGlobalSort
+server/src/services/router.ts:1426 / 1474      "has no enabled models"（profile 激活 / auto:<name> 空链）
+server/src/services/router.ts:1584-1679        selectKeyForModel 扫描（1655 custom-key-mismatch / 1660 cooldown note）
+server/src/services/router.ts:1866-1892        CONTEXT_WINDOW_SAFETY_FACTOR / fitsContextWindowStrict / fitsContextWindow（均过 passesContextWindowFloor）
+server/src/services/router.ts:1916-1930        rowFitsRequestSize / pinnedModelFitsRequestSize
+server/src/services/router.ts:2186-2420        routeRequest（2195 刷统计 / 2197 enabled 过滤 / 2199 orderChain / 2217 探索 / 2251-2287 sticky+pin+retiredUpstream / 2299 平台无 key 预剔除）
 server/src/services/scoring.ts:36 / 39          RoutingStrategy（含 decision）/ PresetStrategy
 server/src/services/scoring.ts:49-54           BANDIT_PRESETS
 server/src/services/scoring.ts:264-295         PRIOR_SUCCESS/FAILURE / reliabilityPosterior / expectedReliability
@@ -830,52 +830,52 @@ server/src/services/scoring.ts:421-441         HEADROOM_FLOOR=0.1 / RAMP_START=0
 server/src/services/scoring.ts:486-490         RATE_LIMIT_MAX_DAMP=0.6 / rateLimitFactor
 server/src/services/scoring.ts:534-540         combineScore（base × headroom × rateLimit）
 server/src/services/ratelimit.ts:1493-1535     parseProviderLimit / LIMIT_COLUMN / learnLimitFromError（1533 = UPDATE *_limit）
-server/src/services/ratelimit.ts:1550-1585     CONTEXT_WINDOW_PATTERNS / MIN_LEARNED_CONTEXT_WINDOW / learnContextWindowFromError（#1479）
+server/src/services/ratelimit.ts:1550-1611     CONTEXT_WINDOW_PATTERNS / MIN_LEARNED_CONTEXT_WINDOW / learnContextWindowFromError（#1479）
 server/src/services/ratelimit.ts               rate_limit_usage 写入 / 冷却写入与清理（source ∈ heuristic|authoritative|credit|tier）
 server/src/lib/output-cap.ts:24-91             learned Map（内存）/ MIN_LEARNED_OUTPUT_CAP=1024 / capKey(按 endpoint_scope) / parseMaxTokensCeiling / learnOutputCapFromError(status∈{0,400,422}) / learnedOutputCap / routeOutputBudget
 server/src/lib/min-context-window.ts:15-54     #1445 新：MIN_CONTEXT_WINDOW_SETTING='min_context_window' / PRESETS(32k/128k/512k/1m) / minContextWindowFloor / passesContextWindowFloor
 server/src/lib/client-context.ts               routingStrategy 字段 + setRequestRoutingStrategy（#1354 新）
-server/src/lib/error-classify.ts:428           isProviderMomentFailure（#1347 新）
-server/src/lib/request-log.ts:78-124           logRequest INSERT（含 failure_attribution 参数）
-server/src/services/routing-decision.ts:20-259 #1354 新：DECISION_PRESETS / DECISION_TIMEOUT_MS=1500 / DEFAULT_MIN_PROBABILITY=0.5 / chooseRoutingPreset / applyDecisionRouting / routingStrategyHeader / getDecisionRoutingStatus（缓存键含 minProbability）
-server/src/services/decision.ts:33-460         #1354 新：DECISION_MODALITY='decision' / runDecision / listDecisionModels / decision_requests 写入 / 平台 adapter(apinex/beatapi/cloudflare/openrouter)
+server/src/lib/error-classify.ts:440           isProviderMomentFailure（#1347 新）
+server/src/lib/request-log.ts:81-127           logRequest INSERT（含 failure_attribution 参数）
+server/src/services/routing-decision.ts:20-263 #1354 新：DECISION_PRESETS / DECISION_TIMEOUT_MS=1500 / DEFAULT_MIN_PROBABILITY=0.5 / chooseRoutingPreset / applyDecisionRouting / routingStrategyHeader / getDecisionRoutingStatus（缓存键含 minProbability）
+server/src/services/decision.ts:35-629         #1354 新：DECISION_MODALITY='decision' / runDecision / listDecisionModels / decision_requests 写入 / 平台 adapter(apinex/beatapi/cloudflare/openrouter)
 server/src/services/model-state.ts:140/167/232/279/353/367  isCatalogManagedModel / getCatalogModelTombstone / retireCatalogModelUpstream / upsertModelOverrides / modelsWithOverriddenField / applyModelOverrides
 server/src/services/catalog-sync.ts:56         SYNC_INTERVAL_MS=12h
 server/src/services/catalog-sync.ts:511-521    updateModel / adoptModel(source='catalog') / insertModel
-server/src/services/catalog-sync.ts:606/664/700/741/773/802/841  七处 `enabled = m.enabled ? row.enabled : 0`（media/chat/video/embedding/decision/transcription/search，§6.6）
-server/src/services/catalog-sync.ts:641        source='user' 行「用户赢」跳过；:753 decisionModels 循环
-server/src/services/catalog-sync.ts:1255       CATALOG_SYNC_DISABLED
+server/src/services/catalog-sync.ts:612/670/706/747/779/808/847  七处 `enabled = m.enabled ? row.enabled : 0`（media/chat/video/embedding/decision/transcription/search，§6.6）
+server/src/services/catalog-sync.ts:647        source='user' 行「用户赢」跳过；:759 decisionModels 循环
+server/src/services/catalog-sync.ts:1261       CATALOG_SYNC_DISABLED
 server/src/lib/fallback-loop.ts:96             noteModelFailure
-server/src/lib/fallback-loop.ts:521-522        context_too_large 分支同时学 *_limit 与 context_window
-server/src/lib/fallback-loop.ts:532-538        max_tokens 上限：首次学到→摘 skipKeys；已生效仍被拒→skipModels
-server/src/lib/fallback-loop.ts:609-615        #1347：providerMoment 为真则跳过 noteModelFailure / penalty；仍 learnLimit
-server/src/lib/fallback-loop.ts:1155           custom-key-mismatch 归类 'config'
+server/src/lib/fallback-loop.ts:525-527        context_too_large 分支同时学 *_limit 与 context_window
+server/src/lib/fallback-loop.ts:537-543        max_tokens 上限：首次学到→摘 skipKeys；已生效仍被拒→skipModels
+server/src/lib/fallback-loop.ts:614-620        #1347：providerMoment 为真则跳过 noteModelFailure / penalty；仍 learnLimit
+server/src/lib/fallback-loop.ts:1160           custom-key-mismatch 归类 'config'
 ── §5 回退阶梯（本篇新写的部分）──
-server/src/lib/fallback-loop.ts:70/172/180-183  FALLBACK_MAX_RETRIES=20 / DEFAULT_FALLBACK_TIME_BUDGET_MS=45000 / HEDGE_BENCH_MIN_SILENT_FRACTION=0.75 / FALLBACK_TIME_BUDGET_SETTING / getFallbackTimeBudgetMs（候选数组 [stored, env]，settings 赢）
+server/src/lib/fallback-loop.ts:70/173/189-206  FALLBACK_MAX_RETRIES=20 / DEFAULT_FALLBACK_TIME_BUDGET_MS=45000 / HEDGE_BENCH_MIN_SILENT_FRACTION=0.75 / FALLBACK_TIME_BUDGET_SETTING / getFallbackTimeBudgetMs（候选数组 [stored, env]，settings 赢）
 server/src/lib/fallback-loop.ts:87-89          MODEL_FAILURE_WINDOW_MS=15min / THRESHOLD=3 / COOLDOWN_MS=10min / modelFailureTimestamps（内存 Map，键 model_db_id）
 server/src/lib/fallback-loop.ts:134            benchKeyAcrossPlatform（账户级判决：把这把 key 在该平台所有可路由模型上 bench，并写 skipKeys）
-server/src/lib/fallback-loop.ts:219-250        FallbackState（skipKeys/skipModels/skipPlatforms + observedTotalTokens/wantsTools/toolRejects/modelNotFoundPlatforms）/ fallbackRoutingTokens / newFallbackState
-server/src/lib/fallback-loop.ts:261            MODEL_NOT_FOUND_PLATFORM_LIMIT=3（custom 端点行豁免，#1218）
-server/src/lib/fallback-loop.ts:310-345        cooldownForError / cooldownDecisionForError（402+suspended→'credit'、403 tier→'tier'、日额度→authoritative 到 UTC/Pacific 午夜、其余走限额阶梯）
-server/src/lib/fallback-loop.ts:358-396        TRUNCATION_STREAK_LIMIT=3 / TRUNCATION_BENCH_MS=5min / EMPTY_COMPLETION_STREAK_LIMIT=3 / reset+clearModelFailureWindows
-server/src/lib/fallback-loop.ts:406            consumeSkipBenchExemption（skipBench 豁免，streak 上限；正常失败复位 streak）
-server/src/lib/fallback-loop.ts:449-616        recordRetryableFailure（449 skipModels / 463-468 modelNotFoundPlatforms→skipPlatforms / 475 退役信号 / 479-490 体积回填 / 494 skipKeys / 503 平台级 / 512-514 413 早退 / 520-531 输出上限 / 533 豁免 / 535 setCooldown / 542-553 流截断 streak / 565-568 noteToolRejection / 580-590 账户级 / 597-612 providerMoment+noteModelFailure+#454 penalty 闸 / 615 learnLimit）
-server/src/lib/fallback-loop.ts:639-663        AUTH_FAILURE_COOLDOWN_MS=5min / REVALIDATION_DEDUPE_MS=30s / triggerKeyRevalidation / recordAuthFailure（只 skipKeys，不动模型）
-server/src/lib/fallback-loop.ts:675-692        recordUpstreamSuccess（清三个窗口/streak + markKeyHealthyFromRequest + 工具拒绝反向处理）
-server/src/lib/fallback-loop.ts:709-745        AttemptErrorClass（13 类）/ AttemptRecord / classifyAttemptError（context_too_large 判在 bad_request 前；降级 400 归 upstream_error）
-server/src/lib/fallback-loop.ts:774-783        EXPOSE_FALLBACK_DETAIL_SETTING='expose_fallback_detail_header' / isFallbackDetailHeaderEnabled（env 名是 FALLBACK_DETAIL_HEADER）/ 2048+120 字上限
-server/src/lib/fallback-loop.ts:825-864        formatAttemptTrail（TRAIL_MAX_SHOWN=10 / 1024 字）/ setFallbackHeaders（X-Fallback-Attempts / -Trail / -Detail）
-server/src/lib/fallback-loop.ts:878-943        ExhaustionBody（kind 7 值 + retryAtMs）/ exhaustionErrorPayload / setExhaustionHeaders（Retry-After=ceil 秒）/ UNAVAILABLE_UNTIL_KNOWN_TIME
-server/src/lib/fallback-loop.ts:977-1108       exhaustedRetryError：auth→502 / context_too_large→413 / model_not_found→404 / 降级→503 / 全 bad_request→400 / breakerFails→503 / 全 known-time 或零 attempt→429+retryAtMs / 兜底 502
-server/src/lib/fallback-loop.ts:1122-1228      formatClassBreakdown / RoutingDiagClass / classifyRoutingDiagLine（`< estimated` 判在 tpm 前）/ routingExhaustionBody（全 config→503）/ logRoutingExhaustion
-server/src/lib/fallback-loop.ts:1246-1338      DispatchOutcome='done'|'committed' / DispatchContext.disarmHedge / FallbackHooks 全接口（route 抛 RouteError、dispatch 只能返回或抛）
-server/src/lib/fallback-loop.ts:1360-1366      runFallbackLoop（ALS trace + finally persistRequestAttempts）/ runFallbackLoopAttempts
-server/src/lib/fallback-loop.ts:1402-1405      newBreaker / stopIfBreakerTripped（客户端已走则只停止不渲染）
-server/src/lib/fallback-loop.ts:1419-1465      循环：1423 clientGone / 1430 hooks.route / 1434 routeErr 的预算判定 / 1448 onRoutingExhausted / 1459 getEndpointTimeBudgetMs / 1465 timedOut
-server/src/lib/fallback-loop.ts:1509-1531      disarmHedge + hedgeTimer(1518) / withKeyProxy 包 dispatch（#590 per-key proxy）
-server/src/lib/fallback-loop.ts:1539-1644      五个 catch 分支（1539 client abort→canceled 行 / 1571 hedge→1574 ownedWholeBudget / 1589 auth / 1599 retryable＋#1218 迟到 in-band bench / 1635 fatal）＋ 1646 契约检查（在 try/catch 外）
+server/src/lib/fallback-loop.ts:219-254        FallbackState（skipKeys/skipModels/skipPlatforms + observedTotalTokens/wantsTools/toolRejects/modelNotFoundPlatforms）/ fallbackRoutingTokens / newFallbackState
+server/src/lib/fallback-loop.ts:265            MODEL_NOT_FOUND_PLATFORM_LIMIT=3（custom 端点行豁免，#1218）
+server/src/lib/fallback-loop.ts:314-354        cooldownForError / cooldownDecisionForError（402+suspended→'credit'、403 tier→'tier'、日额度→authoritative 到 UTC/Pacific 午夜、其余走限额阶梯）
+server/src/lib/fallback-loop.ts:362-400        TRUNCATION_STREAK_LIMIT=3 / TRUNCATION_BENCH_MS=5min / EMPTY_COMPLETION_STREAK_LIMIT=3 / reset+clearModelFailureWindows
+server/src/lib/fallback-loop.ts:410            consumeSkipBenchExemption（skipBench 豁免，streak 上限；正常失败复位 streak）
+server/src/lib/fallback-loop.ts:453-634        recordRetryableFailure（462 skipModels / 475-481 modelNotFoundPlatforms→skipPlatforms / 488 退役信号 / 500-506 体积回填 / 507 skipKeys / 516 平台级 / 524-528 413 早退 / 537-545 输出上限 / 547 豁免 / 549 setCooldown / 559-572 流截断 streak / 580-586 noteToolRejection / 597-607 账户级 / 614-622 providerMoment+noteModelFailure+#454 penalty 闸 / 632 learnLimit）
+server/src/lib/fallback-loop.ts:644-668        AUTH_FAILURE_COOLDOWN_MS=5min / REVALIDATION_DEDUPE_MS=30s / triggerKeyRevalidation / recordAuthFailure（只 skipKeys，不动模型）
+server/src/lib/fallback-loop.ts:680-706        recordUpstreamSuccess（清三个窗口/streak + markKeyHealthyFromRequest + 工具拒绝反向处理）
+server/src/lib/fallback-loop.ts:714-750        AttemptErrorClass（13 类）/ AttemptRecord / classifyAttemptError（context_too_large 判在 bad_request 前；降级 400 归 upstream_error）
+server/src/lib/fallback-loop.ts:779-802        EXPOSE_FALLBACK_DETAIL_SETTING='expose_fallback_detail_header' / isFallbackDetailHeaderEnabled（env 名是 FALLBACK_DETAIL_HEADER）/ 2048+120 字上限
+server/src/lib/fallback-loop.ts:830-881        formatAttemptTrail（TRAIL_MAX_SHOWN=10 / 1024 字）/ setFallbackHeaders（X-Fallback-Attempts / -Trail / -Detail）
+server/src/lib/fallback-loop.ts:883-948        ExhaustionBody（kind 7 值 + retryAtMs）/ exhaustionErrorPayload / setExhaustionHeaders（Retry-After=ceil 秒）/ UNAVAILABLE_UNTIL_KNOWN_TIME
+server/src/lib/fallback-loop.ts:982-1123       exhaustedRetryError：auth→502 / context_too_large→413 / model_not_found→404 / 降级→503 / 全 bad_request→400 / breakerFails→503 / 全 known-time 或零 attempt→429+retryAtMs / 兜底 502
+server/src/lib/fallback-loop.ts:1127-1233      formatClassBreakdown / RoutingDiagClass / classifyRoutingDiagLine（`< estimated` 判在 tpm 前）/ routingExhaustionBody（全 config→503）/ logRoutingExhaustion
+server/src/lib/fallback-loop.ts:1251-1355      DispatchOutcome='done'|'committed' / DispatchContext.disarmHedge / FallbackHooks 全接口（route 抛 RouteError、dispatch 只能返回或抛）
+server/src/lib/fallback-loop.ts:1365-1384      runFallbackLoop（ALS trace + finally persistRequestAttempts）/ runFallbackLoopAttempts
+server/src/lib/fallback-loop.ts:1407-1410      newBreaker / stopIfBreakerTripped（客户端已走则只停止不渲染）
+server/src/lib/fallback-loop.ts:1424-1470      循环：1428 clientGone / 1435 hooks.route / 1439 routeErr 的预算判定 / 1453 onRoutingExhausted / 1464 getEndpointTimeBudgetMs / 1470 timedOut
+server/src/lib/fallback-loop.ts:1514-1536      disarmHedge + hedgeTimer(1523) / withKeyProxy 包 dispatch（#590 per-key proxy）
+server/src/lib/fallback-loop.ts:1544-1661      五个 catch 分支（1544 client abort→canceled 行 / 1576 hedge→1579 ownedWholeBudget / 1594 auth / 1604 retryable＋#1218 迟到 in-band bench / 1640 fatal）＋ 1651 契约检查（在 try/catch 外）
 server/src/lib/attempt-trace.ts:27-67          AttemptOutcome / AttemptTraceRecord / RequestTrace.lastRequestRowId / runWithRequestTrace
-server/src/lib/request-log.ts:177-186          persistRequestAttempts（一次事务批量 INSERT，响应结束后跑）
+server/src/lib/request-log.ts:182-191          persistRequestAttempts（一次事务批量 INSERT，响应结束后跑）
 server/src/lib/ttfb-budget.ts:4-21             DEFAULT_BUFFER_MS=10s / WINDOW=7d / HALF_LIFE=2d / MIN_SAMPLES=5 / MAX_BUDGET_MULTIPLIER=3 / SLOW_P95_BASE_FRACTION=0.5
 server/src/lib/ttfb-budget.ts:77-81            endpointKey（只有 custom 平台带 endpointScope，目录平台一律 ''，中继之间不互借延迟史）
 server/src/lib/ttfb-budget.ts:162-184          getEndpointTimeBudgetMs（含 TTFB_BUDGET_DISABLED=1；每候选重算，余量不继承）
@@ -883,25 +883,25 @@ server/src/lib/guardrails.ts:30-31/53-56       REQUEST_MAX_TOKENS_BUDGET_SETTING
 server/src/lib/guardrails.ts:111-129           BreakerState / newBreaker:116 / recordBreakerFailure:125（limit<=0 直接 false）
 server/src/services/model-retirement.ts:24/30  RETIREMENT_CONFIRMATIONS_REQUIRED=2 / RETIREMENT_OBSERVATION_WINDOW_MS=1h
 server/src/services/model-retirement.ts:66-101 noteModelRetirementSignal（probable 需第二个**不同请求**佐证，同请求跨 key 只算一次；只作用目录拥有行）
-server/src/services/model-state.ts:232-266     retireCatalogModelUpstream（写 tombstones + fallback_config.enabled=0 + profile_models.enabled=0，**不动 models.enabled**）/ reinstateUpstreamRetiredCatalogModel（目录仍收录且标启 → 抬回，catalog-sync.ts:630 调用）
+server/src/services/model-state.ts:232-266     retireCatalogModelUpstream（写 tombstones + fallback_config.enabled=0 + profile_models.enabled=0，**不动 models.enabled**）/ reinstateUpstreamRetiredCatalogModel（目录仍收录且标启 → 抬回，catalog-sync.ts:636 调用）
 server/src/lib/tool-capability.ts:24-59        TOOL_REJECTION_LIMIT=3 / WINDOW=1h / TOOL_BENCH_MS=6h / noteToolRejection / benchForTools / clearToolRejections（两个内存 Map，键 modelStatsKey）
-server/src/routes/proxy.ts:2483-2519           聊天表面的阶梯装配：newFallbackState / state.wantsTools / hedgeAbort=AbortController / applyDecisionRouting / runFallbackLoop({maxRetries:20, clientGone, abortInFlight, route→routeRequest(11 个入参)})
-server/src/routes/proxy.ts:3298-3334           logFailure（写 requests + failureAttributionFor）/ onFatal（502 provider_error）/ onRoutingExhausted + onExhausted（同一套 setFallbackHeaders+setExhaustionHeaders）
-server/src/routes/proxy.ts:2679 等 4 处         signal: AbortSignal.any([clientAbort.signal, hedgeAbort.signal])（客户端挂断与 hedge 取消共用一个信号，故 §5.4 必须先判来源）
-server/src/routes/proxy.ts:1424/2067 · anthropic.ts:541 · responses.ts:813   request_max_tokens_budget 预检（阶梯之前）
+server/src/routes/proxy.ts:2501-2538           聊天表面的阶梯装配：newFallbackState / state.wantsTools / hedgeAbort=AbortController / applyDecisionRouting / runFallbackLoop({maxRetries:20, clientGone, abortInFlight, route→routeRequest(11 个入参)})
+server/src/routes/proxy.ts:3317-3353           logFailure（写 requests + failureAttributionFor）/ onFatal（502 provider_error）/ onRoutingExhausted + onExhausted（同一套 setFallbackHeaders+setExhaustionHeaders）
+server/src/routes/proxy.ts:2698 等 4 处         signal: AbortSignal.any([clientAbort.signal, hedgeAbort.signal])（客户端挂断与 hedge 取消共用一个信号，故 §5.4 必须先判来源）
+server/src/routes/proxy.ts:1436/2082 · anthropic.ts:542 · responses.ts:822   request_max_tokens_budget 预检（阶梯之前）
 server/src/routes/settings.ts:330/435/445/457  GET /guardrails · GET+PUT /provider-moment-attribution · PUT /guardrails（partial，0=关）
 server/src/services/degradation.ts:59-153      DEGRADED_EXIT_GRACE_MS / isDegraded
 server/src/lib/task-type.ts:66-96              parseTaskTypeHeader / deriveTaskType / resolveTaskType
-server/src/routes/proxy.ts:2496-2518           applyDecisionRouting → X-FreeLLM-Routing-Strategy 头 → resolveTaskType → routeRequest
-server/src/routes/anthropic.ts:685 / responses.ts:1188  另两条聊天表面的 decision 接入点
+server/src/routes/proxy.ts:2515-2537           applyDecisionRouting → X-FreeLLM-Routing-Strategy 头 → resolveTaskType → routeRequest
+server/src/routes/anthropic.ts:690 / responses.ts:1201  另两条聊天表面的 decision 接入点
 server/src/routes/fallback.ts:34/98/124        GET/PUT /routing（含 decision 设置）
 server/src/routes/fallback.ts:61               strategy z.enum（含 'decision'）
 server/src/routes/fallback.ts:412              sort preset：speed → m.speed_rank ASC
 server/src/routes/settings.ts:298/318          GET/PUT /settings/min-context-window
-server/src/routes/models.ts:141/156/349        手工新增 / 409 唯一键 / 删除落 catalog_model_tombstones
-server/src/routes/keys.ts:1776-1806            删 key：custom 墓碑+级联，任意平台 key_id 绑定行级联（#1516）
+server/src/routes/models.ts:158/143/351        手工新增 / 409 唯一键 / 删除落 catalog_model_tombstones
+server/src/routes/keys.ts:1783-1826            删 key：custom 墓碑+级联，任意平台 key_id 绑定行级联（#1516）
 server/src/middleware/requireAuth.ts           /api 会话鉴权（只认 token_hash）
-server/src/db/index.ts:83 / 225-229            PRAGMA foreign_keys=ON / getUnifiedApiKey（/v1 凭据）
+server/src/db/index.ts:83 / 248-252            PRAGMA foreign_keys=ON / getUnifiedApiKey（/v1 凭据）
 server/src/db/migrations/20260101_000000_legacy_baseline.ts  models/api_keys/requests/profiles/profile_models/fallback_config/settings/media_models 初值
 server/src/db/migrations/20260627_000002_catalog_model_state.ts  catalog_model_tombstones / model_overrides
 server/src/db/migrations/20260726_000002_request_attempts.ts  request_attempts（ON DELETE CASCADE）
