@@ -106,6 +106,10 @@ export type Platform =
   | 'nabh'
   // Daily-free video route; signed catalog only.
   | 'novai'
+  // Research API; chat and embeddings share a daily quota. Requests are logged.
+  | 'freeinference'
+  // Personal BYOK client; shared monthly account allowance, Telegram verification.
+  | 'freemodel'
   // Hosted gateways; model rows are delivered by the signed catalog only.
   // ElectronHub renews weekly credits; Experiential renews monthly credits.
   | 'electronhub'
