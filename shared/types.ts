@@ -106,6 +106,7 @@ export type Platform =
   | 'nabh'
   // Daily-free video route; signed catalog only.
   | 'novai'
+  | 'varosity'
   // Research API; chat and embeddings share a daily quota. Requests are logged.
   | 'freeinference'
   // Personal BYOK client; shared monthly account allowance, Telegram verification.
@@ -364,6 +365,8 @@ export interface ApiKeyModel {
  *  and enabled yet still skipped by the router because of these. */
 export interface ApiKeyCooldown {
   modelId: string;
+  /** Why this route is benched; 'checkin' means APINex daily website visit required. */
+  source?: 'heuristic' | 'authoritative' | 'credit' | 'tier' | 'checkin';
   expiresAtMs: number;
   remainingMs: number;
 }
