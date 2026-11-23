@@ -1,0 +1,35 @@
+{
+  "baseline": "823c496b19f1551f373a364219d86c673391c4c5",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "审计漂移并确认范围",
+      "status": "completed"
+    },
+    {
+      "id": 2,
+      "title": "建立定位校验工具与统一规范",
+      "status": "completed"
+    },
+    {
+      "id": 3,
+      "title": "更新四层入口与主链路",
+      "status": "completed"
+    },
+    {
+      "id": 4,
+      "title": "同步既有第四层与两篇专题",
+      "status": "in_progress"
+    },
+    {
+      "id": 5,
+      "title": "补齐13至24篇及专题索引",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "全库验证、覆盖复核及状态收尾",
+      "status": "pending"
+    }
+  ]
+}

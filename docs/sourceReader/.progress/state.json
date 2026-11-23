@@ -1,0 +1,412 @@
+{
+  "baseline": "1a64da55",
+  "branch": "adrian",
+  "reviewDate": "2026-11-17",
+  "scope": [
+    "docs/adrian/sourceReader",
+    "docs/adrian/topics"
+  ],
+  "depth": "逐篇深度同步并补全",
+  "backup": "/tmp/freellmapi-docs-adrian-823c496b-before-refresh.tar.gz",
+  "tools": [
+    "sr_symbols.cjs",
+    "sr_tools.py",
+    "test_sr_tools.py"
+  ],
+  "specification": "UPDATE-SPEC.md",
+  "toolTests": {
+    "passed": 11,
+    "failed": 0
+  },
+  "documents": {
+    "00-docs-style-guide.md": "已改写，符号、链接与结构检查通过，待全库收尾",
+    "01-简单框架-系统骨架.md": "已改写，符号、链接与结构检查通过，待全库收尾",
+    "02-简单例子-全路径走读.md": "已改写，符号、链接与结构检查通过，待全库收尾",
+    "03-详细逐步说明-主链路拆解.md": "已改写，符号、链接与结构检查通过，待全库收尾",
+    "04-核心模块与类关系.md": "已改写，100处符号引用与结构检查通过，待全库收尾；2026-11-17 增量：已修正 LEASE_MAX_AGE_MS→leaseMaxAgeMs / isLoopback 委托漂移",
+    "05-API与接口设计.md": "已改写，142处符号引用与结构检查通过，待全库收尾；2026-11-17 增量：已修正 LEASE_MAX_AGE_MS→leaseMaxAgeMs / isLoopback 委托漂移",
+    "06-配置与数据流.md": "已改写，127处符号引用与结构检查通过，待全库收尾；2026-11-17 增量：已修正 LEASE_MAX_AGE_MS→leaseMaxAgeMs / isLoopback 委托漂移",
+    "07-状态存储与并发.md": "已改写，185处符号引用与结构检查通过，待全库收尾；2026-11-17 增量：已修正 LEASE_MAX_AGE_MS→leaseMaxAgeMs / isLoopback 委托漂移",
+    "08-启动生命周期.md": "已改写，204处符号引用与结构检查通过，待全库收尾",
+    "09-测试与部署.md": "已改写，3处符号引用与4处源码行号引用通过，结构检查0问题，待全库收尾",
+    "10-函数级走读-路由限流与回退.md": "已改写，48处符号引用与结构检查通过，待全库收尾",
+    "11-函数级走读-Provider与流式.md": "已改写，12处符号引用与40处源码行号引用通过，结构检查0问题，待全库收尾",
+    "12-函数级走读-存储配置与请求入口.md": "已改写，6处符号引用与13处源码行号引用通过，结构/锚点检查0问题，待全库收尾",
+    "README.md": "已改写，符号、链接与结构检查通过，待全库收尾",
+    "../topics/model调度算法.md": "已核实同步：核心锚点命中当前代码，17处partial-path限定为全路径，strict/结构0问题，110引用可解析，补术语表与基准复核注",
+    "../topics/premium目录同步.md": "已核实同步：核心锚点命中当前代码，14处partial-path/锚点修复，strict/结构0问题，67引用可解析（余1处根README同名提示已核实），补术语表与基准复核注",
+    "13-仪表盘.md": "已编写，6处符号引用与结构检查通过；前向导航链接（15/17/18/19）待对应篇落盘后全库收尾校验",
+    "14-CLI.md": "已编写，27处符号引用与结构检查通过；前向导航链接（15/16/18/19/21）待对应篇落盘后全库收尾校验",
+    "15-桌面端.md": "已编写(2026-11-17)，12处符号引用，1处前向链接(22)待落盘",
+    "16-多协议入口.md": "已编写(2026-11-17)，4处符号引用，前向链接(18)待落盘",
+    "17-搜索与多模态.md": "已编写(2026-11-17)，9处符号引用，前向链接(11并入/18落盘)待收尾",
+    "18-模型与端点管理.md": "已编写(2026-11-17)，9处符号引用，0错误",
+    "19-认证与安全.md": "已编写(2026-11-17)，6处符号引用，1处前向链接(21)待落盘",
+    "20-会话与内容处理.md": "已编写(2026-11-17)，5处符号引用，1处前向链接(22)待落盘",
+    "21-后台探测与配额.md": "已编写(2026-11-17)，10处符号引用，0错误",
+    "22-日志与备份.md": "已编写(2026-11-17)，2处符号引用，0错误",
+    "23-类型与配置契约.md": "已编写(2026-11-17)，2处符号引用，1处前向链接(11已存在)",
+    "24-函数覆盖总表.md": "已编写(2026-11-17)，82处符号引用(经verify扫描)，0错误"
+  },
+  "plannedAdditions": {
+    "13": "仪表盘：页面入口、请求、交互、状态",
+    "14": "CLI：解析、配置生成、模型解析、子进程",
+    "15": "桌面端：server、窗口、托盘、IPC、更新",
+    "16": "多协议入口：协议转换与复用",
+    "17": "搜索与多模态：搜索、embedding、音频、图像、视频",
+    "18": "模型与端点管理：自定义、发现、分组、profile、退役",
+    "19": "认证与安全：登录、密钥、权限边界、输入与出站",
+    "20": "会话与内容处理：压缩、缓存、幂等、工具修复",
+    "21": "后台探测与配额：健康、恢复、预算、预测",
+    "22": "日志与备份：记录、统计、保留、恢复",
+    "23": "类型与配置契约：共享字段、默认值、消费者",
+    "24": "函数覆盖总表：文件、符号、篇目及核对状态"
+  },
+  "runtimeVerification": "本轮未请求上游，未连接运行实例，未修改运行数据",
+  "complete": true,
+  "validation": {
+    "firstBatch": {
+      "documents": 5,
+      "symbolReferences": 161,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "mermaidRender": "待全库验证"
+    },
+    "existingStructureIssues": {},
+    "doc06": {
+      "symbolReferences": 127,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "newMaterial": [
+        "Config.allowedHosts 与 createHostGuard 全链路（#1637）",
+        "PROVIDER_TIMEOUT 三种读取时机（模块常量/构造时/每次调用）",
+        "REASONING_HOLD_MAX_MS 与 HEDGE_BENCH_MIN_SILENT_FRACTION",
+        "activateConfiguredLicense 幂等短路与 syncCatalog(true)",
+        "customModelSeed 三轴下中位数",
+        "drift 白名单覆盖缺口（真实 compareEnvText 判定）"
+      ],
+      "probe": "node --experimental-strip-types 直接调用 server/src/lib/env-drift.ts 的 compareEnvText，只读 .env.example；未启动服务、未改文件"
+    },
+    "doc07": {
+      "symbolReferences": 185,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "newMaterial": [
+        "三个 pragma（补 foreign_keys=ON）与 node:sqlite savepoint 事务",
+        "34 张业务表分组清单；47 迁移=47 静态 import（非目录扫描）",
+        "限流方向纠正：DB 为主、内存仅故障兜底（旧文说反）",
+        "probeStoredSecrets/keyStoreDecryptable 启动期密钥自检",
+        "request-retention 保留期体系与 key_monthly_usage 触发器台账",
+        "restoreBackup 六道门+触发器拆建；db-backup HuggingFace 与 FAPIBK1 加密格式",
+        "冷却来源四分类与 DB 权威方向；file-permissions 双平台"
+      ],
+      "backupNote": "原 /tmp 备份被系统清理，已用 git archive 823c496b -- docs/adrian 重建同路径备份（14 篇原稿）"
+    },
+    "doc08": {
+      "symbolReferences": 204,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "newMaterial": [
+        "onReady 实为 8 个 job（旧文漏 startModelProbe，误写 7）",
+        "wake 信号勘误：代码只注册 SIGCONT/SIGUSR2，SIGUSR1 留给 Node inspector（index.ts 注释漂移）",
+        "main.ts whenReady→startServer→ensureSessionToken→托盘 全链路闭环（旧文待补项）",
+        "installFileLogger #824 双文件 1MB 同步写与日志三层链（redaction 最外层）",
+        "boot 测试两半能力边界与两次历史失败（#949 restoreProxySettings + 字面量漏 8 步）",
+        "tryListen 冗余 if/else 分支；createApp() 无参仍内部 loadConfig",
+        "process-safety-net EPIPE 静默事故复盘与传输错误白名单"
+      ],
+      "fixedStructureIssue": "旧版 L119 表格列数 7≠3 已重写修复，lint_structure 0 问题"
+    },
+    "doc09": {
+      "symbolReferences": 3,
+      "citationReferences": 4,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "anchorErrors": 0,
+      "newMaterial": [
+        "测试计数重测（2026-11-09）：server 347→383、cli 6→7、desktop 13→15、client 56（jsdom 22）",
+        "Docker 基础镜像漂移：node:20→node:24.22.1-bookworm-slim（ARG NODE_IMAGE）",
+        "CI 矩阵 Node 20/22/24 fail-fast=false 与 COVERAGE 仅 22 leg、无阈值永不失败（旧文待补闭环）",
+        "client jsdom 两条事故注释：声明在根（vitest 相对自身 hoisted 位置解析）+ pin ^27（undici8 需 Node≥22.19、markAsUncloneable Node20 无）",
+        "bundle-server define 仅合法 40hex GITHUB_SHA 才内联真值否则空串；banner createRequire 供 express CJS 内部 require",
+        "docker-entrypoint ensure_owned 函数级（mkdir/stat 跳过递归/chown 失败均 continue）+ setpriv 保持 node PID1",
+        "db:migration 四路→五路（含 create）；boot 测试字面量序列 163-182→171-188",
+        "compose 双 watchtower label + autoupdate profile 默认不启动 + docker socket root-equivalent；故意不声明 VOLUME（PaaS 匿名卷事故）"
+      ],
+      "citationNote": "根 package.json:25-29 同名歧义为良性提示（6 候选行号均在范围内，正文已冠「根」且内容核实为五路 db:migration）；其余 3 处行号引用全部可解析"
+    },
+    "doc10": {
+      "symbolReferences": 48,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "anchorErrors": 0,
+      "newMaterial": [
+        "routeRequest 签名漂移：新增末位 strategyOverride（#1628 别名轴对本请求生效）+ 参数次序重排；全篇 body 偏移重新逐行推导",
+        "pin 注入新增 #634 上游 EOL 退役豁免（getCatalogModelTombstone source==='upstream_eol'），用户墓碑仍可 pin",
+        "selectKeyForModel 九道闸门纠正为十道（checkMonthlyBudget #1158 为第十道）+ custom resolveProvider 闸门",
+        "recordRetryableFailure 补全新增分支：402 余额连坐（#1239）、provider-moment 归因（#1347）、cloudflare 账号连坐、toolRejects（#1230）",
+        "runFallbackLoopAttempts 五个失败出口纠正为六个（补 dispatch 契约违约出口，刻意置 try/catch 外防 model-id 数字串误匹配）",
+        "闭环旧版两处待补：orderKeysByScore/orderKeysByRemainingQuota key 级打分公式（两轴加权和 + 稳定 sort）；checkMonthlyBudget/reserveMonthlyBudget 实在 key-budget.ts（UTC 月界 + activeReservations 在飞预留）",
+        "勘误 benchKeyAcrossPlatform 触发源（账号封禁/402，非 auth/解密）；getWindow Window 含 tokenCount 三字段"
+      ],
+      "offsetNote": "routeRequest 外部漂移 +34 行（2152→2186）、内部 +5 行；scoreChainEntry/orderChain 起点稳定但内部轴偏移后移；runFallbackLoopAttempts 起点 1384 稳定、body 偏移基本仍准；全部 48 处偏移经 sr_tools 边界校验通过"
+    },
+    "doc11": {
+      "symbolReferences": 12,
+      "citationReferences": 40,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "anchorErrors": 0,
+      "newMaterial": [
+        "BaseProvider 契约补全：keyless 字段（+7）与 supportsKeyPolling getter（+69，#1599 空查询探针豁免）旧版漏列",
+        "sessionHeaders 新函数（openai-compat.ts:194，#1639 OpenCode x-opencode-session 稳定 UUID）",
+        "rescueFailedGeneration 新增 schema 闸（+19~+21）：开启 tool 参数校验时不合 schema 的 rescue 被拒绝，原始错误照常 failover",
+        "authHeader 改为委托 bearerAuthHeader（#1331 keyless 哨兵不发 Authorization）",
+        "GoogleProvider 从「待补」补齐函数级（§13）：Gemini 线格式自解析帧、复用基类 watchdog、validateKey #268 相反判据（坏 key→400 API_KEY_INVALID 才禁用，权限/区域 403 无定论 throw）",
+        "补 §0 mermaid 全景图与 §18 术语表（旧版两者皆无）"
+      ],
+      "driftNote": "旧版 header/body 绝对行号大体正确，但索引整段过期（base.ts fetchWithTimeout 326-375→339-388、openai-compat class 102→136 等）；chat/stream 函数内偏移系统性少 1（resolveMaxTokens +19→+20、stream 出口 +64~+66→+65~+67），已逐行重算；两处注释绝对行号指错（commit point 529-530→574-575、30s 依据 571-575→616-620）；provider-timeout.ts 全篇无漂移",
+      "grepReverified": "this.readSseStream=5 处、super.streamChatCompletion=19 文件、register=83、new OpenAICompatProvider=34（56 进 readSseFrames / 27 不进）口径复跑未变",
+      "citationNote": "40 处行号引用全部可解析；初版 3 处裸名歧义（index.ts/health.ts）已限定为 server/src/providers/index.ts 与 server/src/services/health.ts，复跑 0 歧义"
+    },
+    "doc12": {
+      "symbolReferences": 6,
+      "citationReferences": 13,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "anchorErrors": 0,
+      "newMaterial": [
+        "initDb 末尾新增 probeStoredSecrets 解密自检（222-231），解释 end 223→234 漂移",
+        "迁移清单逐条点数=47 显式 import（defaults.ts），非目录扫描",
+        "sticky 内存结构闭环：stickySessionMap/STICKY_TTL_MS=30min、两级清理、硬 cap 1000",
+        "pin/sticky 解析纠正为四分支（tier/auto/unify组/legacy/没发），含 503 vs 404 区分",
+        "工序⑤补 normalizeMessageImages 降尺度（2022，估算之前）",
+        "缓存/幂等零配额契约（getCachedResponse 2299、idempotency 2312-2350）"
+      ],
+      "errata": [
+        "proxy.ts handler 1643→1845 整段索引过期",
+        "getSetting/setSetting 225-251→262-274",
+        "runner initializeMigrationTracking 35-41→98-100",
+        "compressRequest 旧待补路径 lib/request-compression.ts 不存在，实为 services/compression/pipeline.ts:93"
+      ],
+      "citationNote": "proxy.ts:42 同名歧义已限定为 server/src/routes/proxy.ts:42；13 处行号引用全可解析"
+    },
+    "topics": {
+      "model调度算法": {
+        "symbolReferences": 0,
+        "citationReferences": 110,
+        "referenceErrors": 0,
+        "structureErrors": 0,
+        "anchorMatch": "routeRequest:2186 / scoreChainEntry:1091 / orderChain:1204 / runFallbackLoop:1365 / combineScore:534 均命中 823c496b",
+        "fixes": [
+          "17处partial-path prose限定为server/src全路径",
+          "头部基准c45fa7ef→823c496b复核注（运行期观测按原日期保留）",
+          "追加§12术语表"
+        ],
+        "note": "正文内容已对齐当前代码，无需重写；原稿基准c45fa7ef至823c496b调度核心文件未漂移"
+      },
+      "premium目录同步": {
+        "symbolReferences": 0,
+        "citationReferences": 67,
+        "referenceErrors": 0,
+        "structureErrors": 0,
+        "anchorMatch": "applyCatalog:481 / syncCatalog:1064 / validateLicenseKey:1155 / upsertModelOverrides:279 均命中 823c496b",
+        "fixes": [
+          "12处partial-path链接标签限定为server/src全路径",
+          "src/index.ts与dist/index.js命令示例改写并标构建产物",
+          "README.md#L243行锚误报移除fragment",
+          "media/embeddings/decision三处同名标签限定services全路径",
+          "头部基准复核注",
+          "追加§11术语表"
+        ],
+        "citationNote": "余1处README.md:243-246同名提示（12候选）：链接target为根README全URL，243-246内容（30天快照门/落后303模型）已核实，提示良性"
+      }
+    },
+    "doc14": {
+      "symbolReferences": 27,
+      "referenceErrors": 0,
+      "structureErrors": 0,
+      "anchorErrors": 0,
+      "forwardLinkErrors": 5,
+      "note": "5处前向链接为计划内篇目，task6全库收尾复验"
+    }
+  },
+  "newDocuments": {
+    "13": {
+      "file": "13-仪表盘.md",
+      "symbolReferences": 6,
+      "structureErrors": 0,
+      "coverage": [
+        "main.tsx入口",
+        "App.tsx Provider栈+路由表",
+        "api.ts apiFetch请求层",
+        "auth-gate.tsx AuthGate",
+        "react-query状态范式(FallbackPage)",
+        "theme/i18n Provider"
+      ],
+      "forwardLinks": [
+        "15-桌面端.md",
+        "17-搜索与多模态.md",
+        "18-模型与端点管理.md",
+        "19-认证与安全.md"
+      ]
+    },
+    "14": {
+      "file": "14-CLI.md",
+      "symbolReferences": 27,
+      "structureErrors": 0,
+      "coverage": [
+        "main/parseArgs 分发与flag互斥",
+        "catalog/catalogs 双roster+degradedReason",
+        "resolveLaunchModel/defaultModelId",
+        "setup+tools.ts 21生成器注册表",
+        "config-files 四格式合并+两阶段落盘",
+        "claudeLaunchEnv/codexArgs/runChild 子进程注入",
+        "doctor diagnose 八档判定+probeGateway指纹",
+        "keys runKeys 四动作"
+      ],
+      "forwardLinks": [
+        "15-桌面端.md",
+        "16-多协议入口.md",
+        "18-模型与端点管理.md",
+        "19-认证与安全.md",
+        "21-后台探测与配额.md"
+      ],
+      "note": "全部静态走读，未运行 CLI、未发任何请求；19个生成器与detect.ts未逐行（篇内§7已标注）"
+    },
+    "15": {
+      "file": "15-桌面端.md",
+      "symbolReferences": 12,
+      "structureErrors": 0,
+      "coverage": [
+        "main.ts whenReady 启动序列",
+        "server-host 嵌入式 server",
+        "buildTray/openDashboard/popover",
+        "gpu-recovery 自愈阶梯",
+        "initUpdater/update-support",
+        "config/logger/stats/base-urls"
+      ],
+      "forwardLinks": [
+        "22-日志与备份.md"
+      ]
+    },
+    "16": {
+      "file": "16-多协议入口.md",
+      "symbolReferences": 4,
+      "structureErrors": 0,
+      "coverage": [
+        "collapseDoubledV1Prefix /v1 折叠",
+        "anthropicRouter/handleMessages",
+        "anthropic-map Claude 映射",
+        "ollamaRouter 仿真模式"
+      ],
+      "forwardLinks": [
+        "18-模型与端点管理.md"
+      ]
+    },
+    "17": {
+      "file": "17-搜索与多模态.md",
+      "symbolReferences": 9,
+      "structureErrors": 0,
+      "coverage": [
+        "search/searchRouter",
+        "embeddings/resolveFamily",
+        "media 模态矩阵",
+        "varosity/rime/freetts/voice-gateways 适配",
+        "custom-media-register",
+        "use-search-readiness"
+      ],
+      "forwardLinks": [
+        "11-Provider与流式.md(待并入)",
+        "18-模型与端点管理.md(待落盘)"
+      ]
+    },
+    "18": {
+      "file": "18-模型与端点管理.md",
+      "symbolReferences": 9,
+      "structureErrors": 0,
+      "coverage": [
+        "catalog-sync/applyCatalog/license",
+        "custom-model register/seed/sync",
+        "tombstone 退役",
+        "model-discovery 内置+通用",
+        "custom-endpoint 分组凭证",
+        "codex-catalog",
+        "profile routing_strategy"
+      ]
+    },
+    "19": {
+      "file": "19-认证与安全.md",
+      "symbolReferences": 6,
+      "structureErrors": 0,
+      "coverage": [
+        "authRouter/desktopSignInAllowed/isLoopbackRemote",
+        "loopback 判定",
+        "key-budget 月度预算",
+        "provider-credential",
+        "verification_basis",
+        "doubled-v1"
+      ]
+    },
+    "20": {
+      "file": "20-会话与内容处理.md",
+      "symbolReferences": 5,
+      "structureErrors": 0,
+      "coverage": [
+        "cache.ts 缓存",
+        "idempotency.ts 幂等",
+        "compression/pipeline 压缩",
+        "resolveStickyPreference 粘滞",
+        "normalizeMessageImages 图像归一"
+      ]
+    },
+    "21": {
+      "file": "21-后台探测与配额.md",
+      "symbolReferences": 10,
+      "structureErrors": 0,
+      "coverage": [
+        "health/model-probe/cooldown-probe",
+        "provider-quota 观测",
+        "quota-forecast/outlook",
+        "budget-alerts",
+        "cloudflare-neurons/daily-quota"
+      ]
+    },
+    "22": {
+      "file": "22-日志与备份.md",
+      "symbolReferences": 2,
+      "structureErrors": 0,
+      "coverage": [
+        "request-retention 五类保留期+prune",
+        "backups createBackup/restoreBackup 六道门",
+        "BACKUP_SOURCES/排除表/路径白名单"
+      ]
+    },
+    "23": {
+      "file": "23-类型与配置契约.md",
+      "symbolReferences": 2,
+      "structureErrors": 0,
+      "coverage": [
+        "shared/types.ts 契约包",
+        "server Config/loadConfig",
+        "env-drift 漂移检测"
+      ]
+    },
+    "24": {
+      "file": "24-函数覆盖总表.md",
+      "symbolReferences": 82,
+      "structureErrors": 0,
+      "coverage": [
+        "文件→符号→篇目对照总表",
+        "选路/Provider/入口/认证/模型/探测/备份/协议/桌面/CLI/契约/启动 12 组"
+      ]
+    }
+  },
+  "driftCommitCount": 85,
+  "verifyBaseline": "16 文档 / 1023 符号引用 / 14 错误(全为指向未落盘计划篇 15-21 的前向链接)",
+  "mergeIntoExisting": {
+    "doc11": "9 新 provider + media 服务出站；注册 83→94、OpenAICompat 34→35 实测更新",
+    "doc07": "迁移 47→52（基线+51 增量），列本轮 5 个新迁移"
+  },
+  "finalVerify": "26 文档 / 1164 符号引用 / 0 错误（2026-11-17）"
+}
