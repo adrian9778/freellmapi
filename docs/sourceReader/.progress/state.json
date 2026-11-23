@@ -8,7 +8,7 @@
     "docs/sourceReader",
     "docs/topics"
   ],
-  "depth": "全量逐篇深度重刷（进行中）",
+  "depth": "全量逐篇深度重刷（已完成）",
   "driftCommitCount": 111,
   "driftFileCount": 518,
   "worktree": "clean (HEAD = 3212ac11，本轮仅 .progress 工具 root 路径修正未提交)",
@@ -19,7 +19,7 @@
   ],
   "toolFix": "sr_symbols.cjs root 上溯层数 4→3、sr_tools.py ROOT parents[4]→parents[3]；.progress 位于 docs/sourceReader/ 下，上溯 3 层才是仓库根，原值落到 16_AI 导致 typescript 解析与 git ls-files 失败",
   "specification": "UPDATE-SPEC.md",
-  "phase": "refreshing",
+  "phase": "completed",
   "units": [],
   "progress": {
     "globalDriftFixed": [
@@ -43,5 +43,31 @@
       "12",
       "13 源码索引备查基准 → 3212ac11"
     ]
-  }
+  },
+  "finalVerify": "29 文档 / 1208 符号引用 / strict 2 错误（均 @freellmapi/shared npm 包名误报，已加注为合法说明性引用）",
+  "baselineConsistency": "全库 29 篇头部基准统一到 3212ac11，历史备注保留旧基准",
+  "commits": [
+    "2ec3659b 第1批",
+    "324dec5b 第2批",
+    "620034e8 第3批"
+  ],
+  "newCapabilityAdded": [
+    "01: provider 83→98 / Platform 84→99 / OpenAICompat 33→36 复计 + 12 新 provider 清单",
+    "09: 测试数 383/56/7/15 → 431/67/7/18，jsdom 22→33",
+    "10: 新增 §7.1 upstream-watch 每次尝试静默窗上限 (#1960)",
+    "11: 新增 provider 表补 Puter/SpeechFlow/Meldport（94→98）",
+    "15: 补 agent-setup/agent-terminal 编码工具一键接入",
+    "17: 新增 §13 specialist-text 文本专用端点",
+    "19: 新增 §13 keyless-defaults 免密 provider 默认启用 (#1870)",
+    "21: 新增 §13 budget-input 月度预算输入校验 (#2030)",
+    "24: §15 补本轮新增说明与基准",
+    "model调度算法: 头部基准 3ede6106 → 3212ac11"
+  ],
+  "globalDriftFixed": [
+    "sr_tools/sr_symbols root 上溯 4→3 修复（否则 typescript/git ls-files 全失败）",
+    "13 篇头部基准 823c496b → 3212ac11；13 篇 1a64da55 → 3212ac11",
+    "4 处源码索引备查基准 → 3212ac11",
+    "docs/adrian/ → docs/sourceReader / docs/topics 路径修正",
+    "strict 13 处失效（partial-path/断链/错误 cli 入口）全修"
+  ]
 }
