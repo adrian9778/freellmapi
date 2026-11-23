@@ -6,7 +6,7 @@ import subprocess
 import sys
 from urllib.parse import unquote
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 REF = re.compile(r'`([^`]+\.(?:tsx|ts|mjs|cjs|js))`\s*·\s*`([^`]+?)\+(\d+)(?:~\+(\d+))?`')
 PATH = re.compile(r'(?<![A-Za-z0-9_])((?:[\w@.~+-]+/)*[\w@.-]+\.(?:tsx|ts|mjs|cjs|js|json|yaml|yml|py|sh|md))(?![A-Za-z0-9_])')

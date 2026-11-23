@@ -1,35 +1,49 @@
 {
-  "baseline": "823c496b19f1551f373a364219d86c673391c4c5",
+  "baseline": "3212ac117dd9cf3cc2e987273a1b72b60d75f3f0",
+  "baselineShort": "3212ac11",
+  "prevBaseline": "823c496b",
+  "reviewDate": "2026-11-23",
+  "depth": "全量逐篇深度重刷",
+  "backup": "/tmp/freellmapi-docs-3212ac11-before-refresh-1795440894.tar.gz",
+  "phases": [
+    { "id": "P0", "title": "基准/规范/工具固化", "status": "completed" },
+    { "id": "P1", "title": "骨架·主链路·模块关系（01-04）", "status": "pending" },
+    { "id": "P2", "title": "主链路走读与API（02,03,05）", "status": "pending" },
+    { "id": "P3", "title": "配置·存储·并发·启动（06,07,08,23）", "status": "pending" },
+    { "id": "P4", "title": "函数级走读（10,11,12）", "status": "pending" },
+    { "id": "P5", "title": "能力篇（13-22）", "status": "pending" },
+    { "id": "P6", "title": "测试部署·覆盖总表·导航收尾（09,24,README,00,专题）", "status": "pending" },
+    { "id": "P7", "title": "全库 verify sweep + 状态收尾", "status": "pending" }
+  ],
   "tasks": [
-    {
-      "id": 1,
-      "title": "审计漂移并确认范围",
-      "status": "completed"
-    },
-    {
-      "id": 2,
-      "title": "建立定位校验工具与统一规范",
-      "status": "completed"
-    },
-    {
-      "id": 3,
-      "title": "更新四层入口与主链路",
-      "status": "completed"
-    },
-    {
-      "id": 4,
-      "title": "同步既有第四层与两篇专题",
-      "status": "in_progress"
-    },
-    {
-      "id": 5,
-      "title": "补齐13至24篇及专题索引",
-      "status": "pending"
-    },
-    {
-      "id": 6,
-      "title": "全库验证、覆盖复核及状态收尾",
-      "status": "pending"
-    }
+    { "id": 1,  "doc": "01-简单框架-系统骨架.md", "phase": "P1", "focus": "provider register 83→98 复计、Platform 成员数复计、模块表", "status": "pending", "phaseState": "pending" },
+    { "id": 2,  "doc": "04-核心模块与类关系.md", "phase": "P1", "focus": "新增 provider 归类、模块关系图", "status": "pending", "phaseState": "pending" },
+    { "id": 3,  "doc": "02-简单例子-全路径走读.md", "phase": "P2", "focus": "routeRequest 签名、主链路偏移", "status": "pending", "phaseState": "pending" },
+    { "id": 4,  "doc": "03-详细逐步说明-主链路拆解.md", "phase": "P2", "focus": "主链路偏移、新增分支", "status": "pending", "phaseState": "pending" },
+    { "id": 5,  "doc": "05-API与接口设计.md", "phase": "P2", "focus": "新路由、OpenAPI 版本、partial-path 修复(05:71)", "status": "pending", "phaseState": "pending" },
+    { "id": 6,  "doc": "06-配置与数据流.md", "phase": "P3", "focus": "新配置项、env-drift", "status": "pending", "phaseState": "pending" },
+    { "id": 7,  "doc": "07-状态存储与并发.md", "phase": "P3", "focus": "迁移 47→52、5 个新迁移、表数", "status": "pending", "phaseState": "pending" },
+    { "id": 8,  "doc": "08-启动生命周期.md", "phase": "P3", "focus": "onReady job 数、启动序列", "status": "pending", "phaseState": "pending" },
+    { "id": 9,  "doc": "23-类型与配置契约.md", "phase": "P3", "focus": "shared/types Platform、partial-path 修复(23:52,59,65)", "status": "pending", "phaseState": "pending" },
+    { "id": 10, "doc": "10-函数级走读-路由限流与回退.md", "phase": "P4", "focus": "routeRequest/fallback 偏移、budget-input、upstream-watch", "status": "pending", "phaseState": "pending" },
+    { "id": 11, "doc": "11-函数级走读-Provider与流式.md", "phase": "P4", "focus": "12 新 provider、media partial-path 修复(11:157-161,254)", "status": "pending", "phaseState": "pending" },
+    { "id": 12, "doc": "12-函数级走读-存储配置与请求入口.md", "phase": "P4", "focus": "proxy 入口偏移、新服务", "status": "pending", "phaseState": "pending" },
+    { "id": 13, "doc": "13-仪表盘.md", "phase": "P5", "focus": "getting-started、通知组件", "status": "pending", "phaseState": "pending" },
+    { "id": 14, "doc": "14-CLI.md", "phase": "P5", "focus": "cli config-files/index/tools/types 改动", "status": "pending", "phaseState": "pending" },
+    { "id": 15, "doc": "15-桌面端.md", "phase": "P5", "focus": "agent-setup/agent-terminal、gpu-recovery 拆分、base-urls", "status": "pending", "phaseState": "pending" },
+    { "id": 16, "doc": "16-多协议入口.md", "phase": "P5", "focus": "doubled-v1、loopback partial-path(16:84)", "status": "pending", "phaseState": "pending" },
+    { "id": 17, "doc": "17-搜索与多模态.md", "phase": "P5", "focus": "media 服务矩阵、voice-gateways、use-search-readiness", "status": "pending", "phaseState": "pending" },
+    { "id": 18, "doc": "18-模型与端点管理.md", "phase": "P5", "focus": "codex-catalog/base-instructions、profile routing_strategy", "status": "pending", "phaseState": "pending" },
+    { "id": 19, "doc": "19-认证与安全.md", "phase": "P5", "focus": "keyless-defaults、verification_basis、loopback partial-path(19:118)", "status": "pending", "phaseState": "pending" },
+    { "id": 20, "doc": "20-会话与内容处理.md", "phase": "P5", "focus": "compression 改动、specialist-text", "status": "pending", "phaseState": "pending" },
+    { "id": 21, "doc": "21-后台探测与配额.md", "phase": "P5", "focus": "cloudflare-neurons、budget-input、upstream-watch", "status": "pending", "phaseState": "pending" },
+    { "id": 22, "doc": "22-日志与备份.md", "phase": "P5", "focus": "db-backup 改动", "status": "pending", "phaseState": "pending" },
+    { "id": 23, "doc": "09-测试与部署.md", "phase": "P6", "focus": "测试计数复计、Docker/CI 漂移", "status": "pending", "phaseState": "pending" },
+    { "id": 24, "doc": "24-函数覆盖总表.md", "phase": "P6", "focus": "全篇符号复计、cli partial-path(24:113)", "status": "pending", "phaseState": "pending" },
+    { "id": 25, "doc": "README.md", "phase": "P6", "focus": "导航、计数、新增篇链接", "status": "pending", "phaseState": "pending" },
+    { "id": 26, "doc": "00-docs-style-guide.md", "phase": "P6", "focus": "断链修复(00:131)、路径改 docs/sourceReader", "status": "pending", "phaseState": "pending" },
+    { "id": 27, "doc": "../topics/model调度算法.md", "phase": "P6", "focus": "调度核心锚点复核、路径改 docs/topics", "status": "pending", "phaseState": "pending" },
+    { "id": 28, "doc": "../topics/premium目录同步.md", "phase": "P6", "focus": "catalog-sync 锚点复核、断链(10)、路径改 docs/topics", "status": "pending", "phaseState": "pending" },
+    { "id": 29, "doc": "全库收尾", "phase": "P7", "focus": "全量 verify sweep + 日期一致性 + state 收尾", "status": "pending", "phaseState": "pending" }
   ]
 }

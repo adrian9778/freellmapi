@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
-const root = path.resolve(__dirname, '../../../..');
+const root = path.resolve(__dirname, '../../..');
 const ts = require(require.resolve('typescript', { paths: [root] }));
 const files = cp.execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' }).split('\0');
 const requested = process.argv.slice(2);

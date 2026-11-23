@@ -1,6 +1,6 @@
 # 00 规范与定位约定
 
-> 层级：阅读规则。核对日期：2026-11-08。源码基准：本地 `adrian` / `823c496b19f1551f373a364219d86c673391c4c5`。
+> 层级：阅读规则。核对日期：2026-11-23。源码基准：本地 `adrian` / `3212ac11`。
 > 本轮是文档更新，不代表已安装的桌面程序已升级，也不代表远端没有新提交。
 
 ## 1. 先选阅读深度
@@ -45,11 +45,11 @@ flowchart LR
 从仓库根目录运行，需Python 3.10及以上、Node.js与本仓库已安装的TypeScript依赖；不需要启动网关。
 
 ```bash
-python3 docs/adrian/sourceReader/.progress/sr_tools.py locate routeRequest
-python3 docs/adrian/sourceReader/.progress/sr_tools.py outline server/src/services/router.ts --top
-python3 docs/adrian/sourceReader/.progress/sr_tools.py offset server/src/services/router.ts routeRequest
-python3 docs/adrian/sourceReader/.progress/sr_tools.py verify docs/adrian/sourceReader
-python3 -B docs/adrian/sourceReader/.progress/test_sr_tools.py
+python3 docs/sourceReader/.progress/sr_tools.py locate routeRequest
+python3 docs/sourceReader/.progress/sr_tools.py outline server/src/services/router.ts --top
+python3 docs/sourceReader/.progress/sr_tools.py offset server/src/services/router.ts routeRequest
+python3 docs/sourceReader/.progress/sr_tools.py verify docs/sourceReader
+python3 -B docs/sourceReader/.progress/test_sr_tools.py
 ```
 
 | 命令 | 什么时候用 | 输出与边界 |
@@ -128,7 +128,7 @@ python3 -B docs/adrian/sourceReader/.progress/test_sr_tools.py
 - [总索引](README.md)：阅读顺序与本轮完成状态。
 - [第一层：系统骨架](01-简单框架-系统骨架.md)。
 - [本轮执行规范](.progress/UPDATE-SPEC.md)：范围、已确认勘误和校验口径。
-- [英文架构目录](../../en/architecture/00-high-level-index.md)：既有产品机制材料，引用前仍要核对其源码基准。
+- [英文架构目录](../en/architecture/00-high-level-index.md)：既有产品机制材料，引用前仍要核对其源码基准。
 
 ## 7. 文末术语解释
 

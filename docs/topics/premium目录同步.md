@@ -7,7 +7,7 @@
 > 3. **同步更新了哪些内容？**（§4）
 > 4. **对 APP 运行有哪些影响？**（§5）——也就是「点了按钮之后到底发生了什么、改变了什么、什么时候生效」。
 >
-> **与既有文档的分工**：`../../en/architecture/05-catalog-sync.md`（及 `docs/zh-cn/architecture/05-catalog-sync.md`）是按产品机制写的 deep-dive，偏「规则清单」；`../sourceReader/12-函数级走读-存储配置与请求入口.md` 是按函数拆的读法；`model调度算法.md` 讲目录写完之后**谁在消费这些表**。本篇按**数据落地的物理顺序**讲：一次 HTTP 往返 → 一行 settings → 七张表 → 运行时读取链。三者的出入（含 05 文档需要修的三处）见 §9。
+> **与既有文档的分工**：`../en/architecture/05-catalog-sync.md`（及 `docs/zh-cn/architecture/05-catalog-sync.md`）是按产品机制写的 deep-dive，偏「规则清单」；`../sourceReader/12-函数级走读-存储配置与请求入口.md` 是按函数拆的读法；`model调度算法.md` 讲目录写完之后**谁在消费这些表**。本篇按**数据落地的物理顺序**讲：一次 HTTP 往返 → 一行 settings → 七张表 → 运行时读取链。三者的出入（含 05 文档需要修的三处）见 §9。
 >
 > **版本与记法**：正文一律 `文件:行号`，绝对行号已于 2026-11-09 回工作树 `adrian`@`823c496b` 逐条复核（`applyCatalog:481` / `syncCatalog:1064` / `validateLicenseKey:1155` / `upsertModelOverrides:279` 等核心锚点均命中当前代码，67 处行号引用全部可解析）；原稿基准为 `c45fa7ef`（2026-10-28），期间目录同步核心文件未漂移。本机运行的网关是 `/Applications/FreeLLMAPI.app` v0.16.11（`app.asar` 构建于 10-27 12:19），**与工作树不是同一份代码**；凡是「只有旧构建才会这样」的观察，正文里单独标注。实测全部为**只读**：`sqlite3 -readonly`、日志 grep、`grep -a` 打 asar，日期 2026-10-28，实例是桌面版默认数据目录（§2.4）；本轮未连接运行实例，运行期数字按当时日期保留。
 

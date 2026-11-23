@@ -1,6 +1,6 @@
 # 11 · 函数级走读：Provider 与流式
 
-> 核对基准：本地 `adrian` HEAD `823c496b`（2026-11-06），核对日期 2026-11-09。本篇所有「符号+偏移」均回当前源码逐行核实；绝对行号只在文末索引备查。旧版 header/body 行号大体正确，但**索引整段过期**、chat/stream 的函数内偏移**系统性少 1**、两处注释绝对行号指错位置，且漏掉 `keyless`/`supportsKeyPolling`/`sessionHeaders`/rescue 的 schema 闸四个新成员——详见 §15 勘误表。
+> 核对基准：本地 `adrian` HEAD `3212ac11`，核对日期 2026-11-23。本篇所有「符号+偏移」均回当前源码逐行核实；绝对行号只在文末索引备查。旧版 header/body 行号大体正确，但**索引整段过期**、chat/stream 的函数内偏移**系统性少 1**、两处注释绝对行号指错位置，且漏掉 `keyless`/`supportsKeyPolling`/`sessionHeaders`/rescue 的 schema 闸四个新成员——详见 §15 勘误表。
 
 ## 0. 人话定位：这一层是「翻译官 + 保险丝」
 
@@ -145,21 +145,24 @@ protected async *readSseStream(res, opts?): AsyncGenerator<ChatCompletionChunk>
 
 按「注册行 → 实际流式实现」对齐：**94 个注册里流最终进 `readSseFrames` 的占多数**（OpenAI 线格式直注 + `super` 继承 + 自调 `this.readSseStream`）；其余不进——GoogleProvider 自解析 Gemini 线格式、KeylessDecisionProvider 两处注册不提供 chat 流，其余是搜索类与自写流式解析的平台。google.ts 不进 `readSseFrames`，但复用 §3 的 `readWithStallTimeout`（google.ts:722-723）与 `firstByteBudgetMs`（google.ts:716）。
 
-### 本轮新增 provider（基准 823c496b → 1a64da55）
+### 本轮新增 provider（基准 823c496b → 3212ac11）
 
-注册于 `server/src/providers/index.ts`，共 9 个新 provider 类/实例，把注册总数从 83 推到 94：
+注册于 `server/src/providers/index.ts`，两轮合计 12 个新 provider 类/实例，把注册总数从 83 推到 98（其中 `823c496b → 1a64da55` 增 9 个到 94，`1a64da55 → 3212ac11` 再增 3 个到 98）：
 
 | Provider | 文件 | 说明 |
 |---|---|---|
-| `ZroProvider` | `server/src/providers/zro.ts` | 新上游适配 |
-| `FreeInferenceProvider` | `server/src/providers/freeinference.ts` | 新上游适配 |
-| `FreeModelProvider` | `server/src/providers/freemodel.ts` | 新上游适配 |
-| `VarosityProvider` | `server/src/providers/varosity.ts` | 多模态（图像/语音/视频），出站见 `services/media-varosity.ts` |
-| `RimeProvider` | `server/src/providers/rime.ts` | 语音，出站见 `services/media-rime.ts` |
-| `TypecastProvider` / `CartesiaProvider` | `server/src/providers/voice-gateways.ts` | 语音网关，出站见 `services/media-voice-gateways.ts` |
-| `SilvrProvider` | `server/src/providers/silvr.ts` | 转写类 |
-| `FreeTtsProvider` | `server/src/providers/freetts.ts` | TTS，出站见 `services/media-freetts.ts` |
-| `OutcrawlProvider` | `server/src/providers/outcrawl.ts` | 搜索类 |
+| `ZroProvider` | `server/src/providers/zro.ts` | 新上游适配（继承 `OpenAICompatProvider`） |
+| `FreeInferenceProvider` | `server/src/providers/freeinference.ts` | 新上游适配（继承 `OpenAICompatProvider`） |
+| `FreeModelProvider` | `server/src/providers/freemodel.ts` | 新上游适配（继承 `OpenAICompatProvider`） |
+| `VarosityProvider` | `server/src/providers/varosity.ts` | 多模态（图像/语音/视频），出站见 `server/src/services/media-varosity.ts` |
+| `RimeProvider` | `server/src/providers/rime.ts` | 语音，出站见 `server/src/services/media-rime.ts` |
+| `TypecastProvider` / `CartesiaProvider` | `server/src/providers/voice-gateways.ts` | 语音网关，出站见 `server/src/services/media-voice-gateways.ts` |
+| `SilvrProvider` | `server/src/providers/silvr.ts` | 转写类（继承 `OpenAICompatProvider`） |
+| `FreeTtsProvider` | `server/src/providers/freetts.ts` | TTS，出站见 `server/src/services/media-freetts.ts` |
+| `OutcrawlProvider` | `server/src/providers/outcrawl.ts` | 搜索类（继承 `SearchOnlyProvider`） |
+| `PuterProvider` | `server/src/providers/puter.ts` | 新上游适配（继承 `BaseProvider`，本轮新增） |
+| `SpeechFlowProvider` | `server/src/providers/speechflow.ts` | 语音类（继承 `BaseProvider`，本轮新增） |
+| `MeldportProvider` | `server/src/providers/meldport.ts` | 新上游适配（继承 `OpenAICompatProvider`，本轮新增） |
 
 其中 Varosity/Rime/FreeTts/Typecast/Cartesia/Silvr 属**多模态出站**，其函数级拆解不在本篇，见 [17 搜索与多模态](17-搜索与多模态.md) §7；本篇仍只讲文本 chat 流式契约与这些 provider 的注册归属。
 
@@ -251,7 +254,7 @@ async chatCompletion(apiKey, messages, modelId, options?, quotaContext?)
 2. `fetchWithTimeout` **不传 timeoutBounds**（`+32`）——默认 headers 语义（`+30~+31` 注释：headers 一到期限退场，之后流归 client signal + stall watchdog）。
 3. 出口：`yield* this.guardInBandCreditsError(this.readSseStream(res, { firstByteTimeoutMs: options?.timeoutMs ?? this.timeoutMs }))`（`+65~+67`，readSseStream 调用在 `+66`；#584 的第一字节宽限从这条路传进 §4，`+62~+64` 是它的注释）。rescue 失败生成走三帧 yield（`+48~+52`：role → tool_calls → `finish_reason: 'tool_calls'`）；`pinnedToolChoiceRetryFor` 的重试在流式版是 `yield*` 递归再 `return`（`+54~+58`）。
 
-`guardInBandCreditsError`（`OpenAICompatProvider.guardInBandCreditsError+0`，577）：只检查**第一个 content-bearing chunk**（`+6~+9` 把各 choice 的 `delta.content` 拼串喂 `inBandCreditsError`），余额告是单条固定文案；`sawContent` 一旦置位（`+11`），之后每帧原样 `yield`（`+18`），reasoning/role chunk 直接过（首 token 延迟不受影响）。命中就抛 402（`+13~+15`）。**抛出落在 proxy 的 commit point 之前**（函数头注释 openai-compat.ts:574-575 言明），回退循环还能轮换下一跳——反例是「SSE 头已冲出 = `committed`，之后无法回退」（`docs/adrian/topics/model调度算法.md` §5.1 的共同契约）。
+`guardInBandCreditsError`（`OpenAICompatProvider.guardInBandCreditsError+0`，577）：只检查**第一个 content-bearing chunk**（`+6~+9` 把各 choice 的 `delta.content` 拼串喂 `inBandCreditsError`），余额告是单条固定文案；`sawContent` 一旦置位（`+11`），之后每帧原样 `yield`（`+18`），reasoning/role chunk 直接过（首 token 延迟不受影响）。命中就抛 402（`+13~+15`）。**抛出落在 proxy 的 commit point 之前**（函数头注释 openai-compat.ts:574-575 言明），回退循环还能轮换下一跳——反例是「SSE 头已冲出 = `committed`，之后无法回退」（`docs/topics/model调度算法.md` §5.1 的共同契约）。
 
 ## 9. `validateKey` / `fetchCatalogEndpoint` / `fetchModelCatalog`（openai-compat.ts）
 
@@ -349,7 +352,7 @@ validateKey(apiKey, quotaContext?)
 | 11 | §10 GoogleProvider 列「待补」 | 本轮 §13 补齐函数级（含 #268 相反判据） | 待补闭环 |
 | 12 | 全篇无图、无术语表 | 补 §0 mermaid + §18 术语表 | 结构补齐 |
 
-## 16. 源码索引（符号 + 绝对行号备查，以 823c496b 为准）
+## 16. 源码索引（符号 + 绝对行号备查，以 3212ac11 为准）
 
 - `server/src/providers/base.ts` — `BaseProvider` 229（`platform` 230、`name` 231、`keyless` 236、`chatCompletion` 238、`streamChatCompletion` 246、`validateKey` 254；`fetchQuota` 266-268、`hasQuotaProbe` 274-276、`supportsKeyValidation` 285-287、`supportsKeyPolling` 298-300）；`validationResult` 308-337；`fetchWithTimeout` 339-388；`makeId` 390-392；`readWithStallTimeout` 405-421；`firstByteBudgetMs` 435-438；`firstByteTimeoutMessage` 442-444；`readSseStream` 471-476；`readSseFrames` 478-537；类尾 538
 - `server/src/providers/openai-compat.ts` — `inBandCreditsError` 90-100；`pinnedToolChoiceRetry` 110-116；`QuotaProbeSpec` 128-134；`OpenAICompatProvider` 136-735（`constructor` 156-179、`resolveParallelToolCalls` 185-188、`sessionHeaders` 194-197、`rescueFailedGeneration` 209-232、`pinnedToolChoiceRetryFor` 237-242、`upstreamErrorText` 249-255、`authHeader` 265-267、`samplingForModel` 272-284、`STRICT_PLATFORMS` 297、`messagesForPlatform` 298-363、`chatCompletion` 365-495、`streamChatCompletion` 497-565、`guardInBandCreditsError` 577-597、`modelsUrl` 600-602、`fetchCatalogEndpoint` 615-639、`fetchModelCatalog` 644-646、`validateKey` 648-665、`hasQuotaProbe` 675-677、`fetchQuota` 679-734）；`normalizeChoices` 746-778

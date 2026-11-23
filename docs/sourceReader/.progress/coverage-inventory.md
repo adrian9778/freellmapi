@@ -1,37 +1,56 @@
-# 覆盖清单 — 基准 823c496b → HEAD 1a64da55
+# 本轮覆盖清单（基准 823c496b → HEAD 3212ac11，111 commits）
 
-核对日期：2026-11-17。漂移：85 commits / 387 文件。verify 基线：16 文档 / 1023 符号引用。
-首轮 verify：19 错误 → 修正 2 个真实漂移簇后 14 错误，全部为指向未落盘计划篇（15/16/17/18/19/21）的前向链接。
+逐项判定「代码有、文档没有」的能力。处置待用户确认深度后回填状态。
 
-## A. 已修正的既有篇目漂移
+## server 端新增
 
-| 主题 | 证据 | 当前文档 | 处置 | 状态 |
+| 能力或机制 | 代码与测试证据 | 当前文档 | 处置 | 状态 |
 |---|---|---|---|---|
-| 租约老化 `LEASE_MAX_AGE_MS`（固定 2min）→ `leaseMaxAgeMs(platform)`（按平台计算） | `server/src/services/ratelimit.ts` · `leaseMaxAgeMs+0`（92）、`pruneLeases+0`（98）、`LEASE_BACKSTOP_FLOOR_MS+0`（88）、`LEASE_BACKSTOP_MARGIN_MS+0`（89） | 04/06/07 | 改节（语义重写） | 完成 |
-| Ollama `isLoopback` 变为 `lib/loopback.ts` 单行委托，`+0~+13` 偏移越界 | `server/src/routes/ollama.ts` · `isLoopback+0`（26）、`server/src/lib/loopback.ts` · `isLoopbackRequest+0`（35）、`forwardedPeerAddress+0`（25）、`isLoopbackAddress+0`（14） | 05 | 改节（锚点+语义） | 完成 |
+| 12 个新 provider（Outcrawl/Puter/Zro/FreeInference/FreeModel/Varosity/SpeechFlow/Meldport/Rime/Typecast/Cartesia/Silvr/FreeTts） | `server/src/providers/index.ts` register 数 83→98 | 01 篇 §结论表写死「83 次 register」；24 篇覆盖表 | 改 01/24 计数 + 视深度补 11 篇 | 待办 |
+| 5 个新迁移（custom_media_endpoint_identity / cloudflare_neuron_usage / key_verification_basis / model_monthly_usage / profile_routing_strategy） | `server/src/db/migrations/` 47→52；`defaults.ts` import 47→52 | 07 篇「47 迁移」 | 改 07 计数 + 列 5 个新迁移 | 待办 |
+| media 服务矩阵扩展（media-freetts/media-rime/media-varosity/media-voice-gateways/media-google-live/media-solaria） | `server/src/services/media-*.ts` 新增 6 个 | 17 篇搜索与多模态 | 改 17 篇 | 待办 |
+| voice-gateways（Typecast/Cartesia 语音网关）+ freetts provider | `server/src/providers/voice-gateways.ts`、`freetts.ts` | 17/11 篇 | 改 11/17 篇 | 待办 |
+| specialist-text 服务 | `server/src/services/specialist-text.ts` 新增 | 无独立篇 | 视深度定 | 待办 |
+| keyless-defaults 服务 | `server/src/services/keyless-defaults.ts` 新增 | 11/19 篇提及 keyless 字段 | 视深度补 | 待办 |
+| codex-catalog + codex-base-instructions 服务 | `server/src/services/codex-*.ts` 新增 | 18 篇提及 codex-catalog | 改 18 篇 | 待办 |
+| cloudflare-neurons 服务 + neuron usage 迁移 | `server/src/services/cloudflare-neurons.ts` | 21 篇提及 cloudflare-daily-quota | 改 21 篇 | 待办 |
+| budget-input 库 + budget 改动 | `server/src/lib/budget-input.ts` 新增 | 10/21 篇预算 | 视深度补 | 待办 |
+| upstream-watch 库 | `server/src/lib/upstream-watch.ts` 新增 | 无 | 视深度补 | 待办 |
+| loopback 库（从别处抽出） | `server/src/lib/loopback.ts` 新增 | 19 篇 loopback 判定（引用 partial-path） | 改 19 篇引用 | 待办 |
+| doubled-v1 中间件 | `server/src/middleware/doubled-v1.ts` 新增 | 16/19 篇提及 | 核对引用 | 待办 |
 
-## B. 新增能力覆盖缺口（代码已存在，文档未覆盖）
+## desktop 端新增
 
-### B1. 应并入既有篇目
+| 能力或机制 | 代码与测试证据 | 当前文档 | 处置 | 状态 |
+|---|---|---|---|---|
+| agent-setup + agent-terminal | `desktop/src/agent-setup.ts`、`agent-terminal.ts`；`shared/agent-setup.ts` | 15 篇桌面端未覆盖 | 改 15 篇 | 待办 |
+| gpu-recovery 拆分（gpu-recovery + gpu-recovery-host） | `desktop/src/gpu-recovery*.ts` | 15 篇已有 gpu-recovery 自愈阶梯 | 改 15 篇 | 待办 |
+| base-urls 独立模块 | `desktop/src/base-urls.ts` | 15 篇提及 base-urls | 核对 | 待办 |
 
-| 能力或机制 | 代码与测试证据 | 需求来源 | 当前文档 | 处置 | 状态 |
-|---|---|---|---|---|---|
-| 9 个新 provider（zro/freeinference/freemodel/varosity/rime/typecast/cartesia/silvr/freetts/outcrawl） | `server/src/providers/*.ts`、注册于 `server/src/providers/index.ts` | 可观察行为 | 11-Provider与流式 | 改节（provider 清单与契约） | 待办 |
-| 语音/媒体出站服务（media-freetts/rime/varosity/voice-gateways） | `server/src/services/media-*.ts` | 可观察行为 | 11 或 17 | 改节 | 待办（依赖 17 是否落盘） |
-| `collapseDoubledV` doubled-v1 中间件 | `server/src/middleware/doubled-v1.ts`、`__tests__/routes/doubled-v1-prefix.test.ts` | 可观察行为 | 05-API与接口设计 | 改节（路由前缀规范化） | 待办 |
-| Codex catalog / base-instructions | `server/src/services/codex-catalog.ts`、`codex-base-instructions.ts` | 可观察行为 | 05 或 18 | 改节 | 待办 |
-| 5 个新迁移（media_models 重建、cloudflare_neuron_usage、api_keys.verification_basis、model_monthly_usage、profiles.routing_strategy） | `server/src/db/migrations/2026{1028,1104,1105,1111}*.ts`（总数 47→52） | 可观察行为 | 06-配置与数据流、07-状态存储与并发 | 改节（迁移计数与表清单） | 待办 |
-| Cloudflare neurons 用量 | `server/src/services/cloudflare-neurons.ts` | 可观察行为 | 06/07 或 21 | 改节 | 待办 |
+## client 端新增
 
-### B2. 计划篇（15–24）全部未落盘
+| 能力或机制 | 代码与测试证据 | 当前文档 | 处置 | 状态 |
+|---|---|---|---|---|
+| use-search-readiness hook + search-readiness-notice | `client/src/hooks/use-search-readiness.ts` | 17 篇提及 use-search-readiness | 核对 | 待办 |
+| apinex-checkin-notice / keyless-notice / provider-visibility 等组件 | `client/src/components/keys/*` 新增多个 | 13 篇仪表盘未逐一覆盖 | 视深度定 | 待办 |
+| getting-started 组件 | `client/src/components/getting-started.tsx` | 13 篇 | 视深度定 | 待办 |
 
-15 桌面端（含新 gpu-recovery、base-urls、desktop-login-item）、16 多协议入口、17 搜索与多模态（含 search-readiness）、18 模型与端点管理、19 认证与安全、20 会话与内容处理、21 后台探测与配额、22 日志与备份、23 类型与配置契约、24 函数覆盖总表。
-→ 这些是 plannedAdditions，属于既有计划的补全，非本轮漂移引入。13/14 已为它们预留前向链接（当前 verify 的 14 个错误即此）。
+## strict verify 已暴露的引用失效（无论深度都要修）
 
-## B1 完成记录（2026-11-17）
+| 文档:行 | 问题 | 处置 |
+|---|---|---|
+| 00:131 | 断链 `../../en/architecture/00-high-level-index.md` | 改或删 |
+| 05:71 | partial-path `docs/adrian/sourceReader/.progress/sr_symbols.cjs`（旧 adrian 路径） | 改为现路径 |
+| 11:157-161 | media-varosity/rime/voice-gateways/freetts partial-path | 补 `server/src/` 前缀 |
+| 11:254 | `docs/adrian/topics/model调度算法.md` 旧路径 | 改现路径 |
+| 16:84、19:118 | `lib/loopback.ts` partial-path | 补前缀 |
+| 23:52、23:59、23:65 | `providers/base.ts`、`@freellmapi/shared/types.js` partial-path | 核对 |
+| 24:113 | `cli/src/main.ts` partial-path | 核对 |
+| topics/premium:10 | 断链 `../../en/architecture/05-catalog-sync.md` | 改或删 |
 
-B1 各项已并入既有篇目：9 新 provider + media 服务 → 11；迁移 47→52 + Cloudflare neurons → 07；doubled-v1/Codex → 16/05/18。provider 注册 83→94、OpenAICompatProvider 34→35 已实测更新。
+## 已知漂移计数声明（需逐篇复计，不能沿用旧数字）
 
-## C. 待用户确认
-
-覆盖缺口默认必须处理（用户要求"同步到最新代码"）。但 B2 的 10 篇计划篇是独立的大体量新增，且 13/14 已为其预留链接——需确认本轮是「只把新能力并入既有 00–14 + topics」还是「同时补写计划篇 15–24」。
+- provider register：文档写 83 → 实际 98
+- 迁移数：文档写 47 → 实际 52
+- OpenAICompatProvider 直接创建数：文档写 33 → 待复计
+- Platform 成员数：文档写 84 → 待复计
