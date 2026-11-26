@@ -10,9 +10,11 @@ import type {
   ChatContentBlock,
 } from '@freellmapi/shared/types.js';
 import { routeRequest, resolveModelGroupCandidates, resolveRoutingChain, resolveStickyPreference, routingReserveTokens, failureAttributionFor, type RouteResult, type ResolvedChain, type ChainRow } from '../services/router.js';
-import { getSetting } from '../db/index.js';
-import { resolveAuth, prependSystemPrompt, type ResolvedAuth } from '../lib/system-prompt.js';
+import { getDb, getSetting } from '../db/index.js';
+import { resolveAuth, prependSystemPrompt, invalidApiKeyMessage, type ResolvedAuth } from '../lib/system-prompt.js';
+import { maybeInjectSystemDate } from '../lib/system-date.js';
 import { contentToString, estimateInputTokens } from '../lib/content.js';
+import { checkVisionCapacity } from '../lib/vision-gate.js';
 import { routeOutputBudget } from '../lib/output-cap.js';
 import { resolveTaskType } from '../lib/task-type.js';
 import { repairToolArguments, toolSchemaMap } from '../lib/tool-args.js';
@@ -27,7 +29,7 @@ import { runFallbackLoop, newFallbackState, fallbackRoutingTokens, recordUpstrea
 import { routedViaValue } from '../lib/header-value.js';
 import { startStreamKeepalive, streamKeepaliveMs } from '../lib/stream-keepalive.js';
 import { applyTokenBudget, tokenBudgetMessage } from '../lib/guardrails.js';
-import { resolveAnthropicModel, claudeFamilyDiscoveryEntries } from '../services/anthropic-map.js';
+import { resolveAnthropicModel, classifyClaudeFamily, claudeFamilyDiscoveryEntries } from '../services/anthropic-map.js';
 import { isUnifyEnabled, getModelGroups, resolveRequestedIdForDispatch } from '../services/model-groups.js';
 import type { ReasoningEffort } from '../lib/sampling-params.js';
 import { buildModelListing } from '../services/model-listing.js';
@@ -278,9 +280,10 @@ function newMessageId(): string {
 // carries its server-enforced system prompt. A disabled/unknown profile fails
 // like a bad key so a revoked client learns nothing extra.
 function authenticate(req: Request, res: Response): ResolvedAuth | null {
-  const auth = resolveAuth(extractApiToken(req));
+  const token = extractApiToken(req);
+  const auth = resolveAuth(token);
   if (!auth) {
-    sendError(res, 401, 'authentication_error', 'Invalid API key');
+    sendError(res, 401, 'authentication_error', invalidApiKeyMessage(token));
     return null;
   }
   return auth;
@@ -576,6 +579,15 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
   // RAW wire body, and normalization mutates urls in place keeping the blocks
   // (and any cache_control on them) intact — neither is disturbed.
   await normalizeMessageImages(messages);
+  // Same up-front vision gate as /v1/chat/completions and /v1/responses: an
+  // image anywhere in the conversation (Claude Code re-sends screenshots in
+  // history on every follow-up turn) needs a routable vision model, else a
+  // clear 422 instead of a 429 "All models exhausted" (#2061, #2062).
+  const noVisionMessage = hasImage ? checkVisionCapacity(messages, 'anthropic messages') : null;
+  if (noVisionMessage) {
+    res.status(422).json({ type: 'error', error: { type: 'invalid_request_error', message: noVisionMessage, code: 'no_vision_model' } });
+    return;
+  }
   const systemHasCacheControl = Array.isArray(body.system)
     && body.system.some(block => block && typeof block === 'object' && 'cache_control' in block);
   const messageHasCacheControl = body.messages.some(message =>
@@ -593,6 +605,10 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
   });
   messages = compressionResult.messages;
   res.setHeader('X-FreeLLM-Compress', formatCompressionHeader(compressionResult));
+
+  // Opt-in system date (#1931): injected after compression and behind any
+  // client-profile enforced prompt. Skipped if caller already states the date.
+  messages = maybeInjectSystemDate(messages, { tools });
 
   // Server-enforced system prompt (#411): injected AFTER compression so it is
   // never compressed away, and FIRST in the list so a caller-supplied system
@@ -648,7 +664,28 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
   // haiku/default → auto | a pinned catalog model). A concrete catalog id pins
   // directly. `pinned` drives the analytics requested-model label.
   const resolved = resolveAnthropicModel(routedModel);
-  const pinnedModelId = resolved.pinned ? (body.model ?? null) : null;
+
+  // A non-Claude id that resolveAnthropicModel could not pin to an enabled
+  // catalog row used to fall through to plain auto, so an unrelated model
+  // answered with the requested id echoed back (#2090). Resolve it the way
+  // /v1/chat/completions does: a unified group id (canonical slug,
+  // `platform:model_id`) routes strictly over its group, anything else is a
+  // 404. Claude-family aliases keep their auto fallback.
+  const explicitId = routedModel?.trim();
+  let explicitGroupChain: ChainRow[] | undefined;
+  if (!resolved.pinned && explicitId && !isAutoModel(explicitId) && classifyClaudeFamily(explicitId) === null) {
+    const dispatch = isUnifyEnabled() ? resolveRequestedIdForDispatch(explicitId, getModelGroups()) : null;
+    const chain = dispatch?.memberDbIds.length ? resolveModelGroupCandidates(dispatch.memberDbIds, dispatch.demotedDbIds) : [];
+    if (chain.length === 0) {
+      const inCatalog = !!dispatch?.memberDbIds.length
+        || !!getDb().prepare('SELECT 1 FROM models WHERE model_id = ? LIMIT 1').get(explicitId);
+      const reason = inCatalog ? 'is disabled' : 'is not in the catalog';
+      sendError(res, 404, 'not_found_error', `Model '${explicitId}' ${reason}. Use 'auto' (or omit the 'model' field) to auto-route, or call /v1/models for the available list.`);
+      return;
+    }
+    explicitGroupChain = chain;
+  }
+  const pinnedModelId = resolved.pinned || explicitGroupChain ? (body.model ?? null) : null;
 
   // Named `auto:<profile>` chains (and plain `auto`) must go through the same
   // resolver as /v1/chat/completions. resolveAnthropicModel treats unknown ids
@@ -695,11 +732,11 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
   // routes over it as a chain, so the tier acts as a capability band the
   // router scores inside — failover stays within the band instead of falling
   // off to an unrelated model.
-  let groupChain: ChainRow[] | undefined;
+  let groupChain: ChainRow[] | undefined = explicitGroupChain;
   // Sticky scope for a group-pinned request: bucket by the pinned catalog id so
   // the session prefers its last successful provider of THIS model without
   // leaking affinity across groups. Undefined for auto (the global scope).
-  let stickyScope: string | undefined;
+  let stickyScope: string | undefined = explicitGroupChain ? explicitId : undefined;
   if (resolved.modelId) {
     const dispatch = isUnifyEnabled() ? resolveRequestedIdForDispatch(resolved.modelId, getModelGroups()) : null;
     const members = dispatch?.memberDbIds ?? null;

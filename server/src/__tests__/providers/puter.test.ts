@@ -8,7 +8,21 @@ const model='gemini-3.8-flash', messages=[{role:'user' as const,content:'Hi'}];
 describe('native Puter wire protocol',()=>{
   afterEach(()=>vi.unstubAllGlobals());
   it.each([
+    ['qwen3-vl-plus', 'alibaba:qwen/qwen3-vl-plus'],
+    ['glm-5.3-flashx', 'z-ai:z-ai/glm-5.3-flashx'],
+    ['qwen-plus', 'alibaba:qwen/qwen-plus'],
+    ['gemini-3.1-flash-lite', 'google:google/gemini-3.1-flash-lite'],
+    ['deepseek-v4-pro-0813', 'alibaba:deepseek/deepseek-v4-pro-0813'],
+    ['minimax-m3.1-flash', 'minimax:minimax/minimax-m3.1-flash'],
+    ['qwen3.5-omni-flash', 'alibaba:qwen/qwen3.5-omni-flash'],
+    ['gemini-3.5-flash', 'google:google/gemini-3.5-flash'],
+    ['deepseek-v4-flash-0731', 'alibaba:deepseek/deepseek-v4-flash-0731'],
+    ['qwen3.8-omni-flash', 'alibaba:qwen/qwen3.8-omni-flash'],
+    ['kimi-k2.6', 'moonshotai:moonshotai/kimi-k2.6'],
+    ['gemini-4-hydrogen', 'google:google/gemini-4-hydrogen'],
     ['qwen4-max', 'alibaba:qwen/qwen4-max'],
+    ['qwen3.8-max', 'alibaba:qwen/qwen3.8-max'],
+    ['qwen3.7-max', 'alibaba:qwen/qwen3.7-max'],
     ['qwen3.7-flash', 'alibaba:qwen/qwen3.7-flash'],
     ['qwen3.6-flash', 'alibaba:qwen/qwen3.6-flash'],
     ['qwen3.6-plus', 'alibaba:qwen/qwen3.6-plus'],
