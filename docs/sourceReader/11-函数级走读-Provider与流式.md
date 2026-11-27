@@ -1,6 +1,6 @@
 # 11 · 函数级走读：Provider 与流式
 
-> 核对基准：本地 `adrian` HEAD `3212ac11`，核对日期 2026-11-23。本篇所有「符号+偏移」均回当前源码逐行核实；绝对行号只在文末索引备查。旧版 header/body 行号大体正确，但**索引整段过期**、chat/stream 的函数内偏移**系统性少 1**、两处注释绝对行号指错位置，且漏掉 `keyless`/`supportsKeyPolling`/`sessionHeaders`/rescue 的 schema 闸四个新成员——详见 §15 勘误表。
+> 核对基准：本地 `adrian` HEAD `ed38ed46`，核对日期 2026-11-23。本篇所有「符号+偏移」均回当前源码逐行核实；绝对行号只在文末索引备查。旧版 header/body 行号大体正确，但**索引整段过期**、chat/stream 的函数内偏移**系统性少 1**、两处注释绝对行号指错位置，且漏掉 `keyless`/`supportsKeyPolling`/`sessionHeaders`/rescue 的 schema 闸四个新成员——详见 §15 勘误表。
 
 ## 0. 人话定位：这一层是「翻译官 + 保险丝」
 
@@ -140,14 +140,14 @@ protected async *readSseStream(res, opts?): AsyncGenerator<ChatCompletionChunk>
 |---|---|
 | `grep -rn 'this\.readSseStream(' server/src/providers/*.ts` | **5 处**：openai-compat.ts:563、cohere.ts:128、moondream.ts:115、cloudflare.ts:161、jamai.ts:100 |
 | `grep -rln 'super.streamChatCompletion' server/src/providers/*.ts \| wc -l` | **19 个文件**（经继承落到 openai-compat 那条） |
-| `grep -cE '^\s*register\(' server/src/providers/index.ts` | **94 个注册 provider**（2026-11-17 实测；上一版 83） |
-| `grep -c 'new OpenAICompatProvider' server/src/providers/index.ts` | **35 次**（34 处注册 + 1 处 resolveProvider 现造 custom；上一版 34） |
+| `grep -cE '^\s*register\(' server/src/providers/index.ts` | **104 个注册 provider**（2026-11-27 实测；上一版 94） |
+| `grep -c 'new OpenAICompatProvider' server/src/providers/index.ts` | **37 次**（36 处注册 + 1 处 resolveProvider 现造 custom；上一版 35） |
 
-按「注册行 → 实际流式实现」对齐：**94 个注册里流最终进 `readSseFrames` 的占多数**（OpenAI 线格式直注 + `super` 继承 + 自调 `this.readSseStream`）；其余不进——GoogleProvider 自解析 Gemini 线格式、KeylessDecisionProvider 两处注册不提供 chat 流，其余是搜索类与自写流式解析的平台。google.ts 不进 `readSseFrames`，但复用 §3 的 `readWithStallTimeout`（google.ts:722-723）与 `firstByteBudgetMs`（google.ts:716）。
+按「注册行 → 实际流式实现」对齐：**104 个注册里流最终进 `readSseFrames` 的占多数**（OpenAI 线格式直注 + `super` 继承 + 自调 `this.readSseStream`）；其余不进——GoogleProvider 自解析 Gemini 线格式、KeylessDecisionProvider 两处注册不提供 chat 流，其余是搜索类与自写流式解析的平台。google.ts 不进 `readSseFrames`，但复用 §3 的 `readWithStallTimeout`（google.ts:722-723）与 `firstByteBudgetMs`（google.ts:716）。
 
 ### 本轮新增 provider（基准 823c496b → 3212ac11）
 
-注册于 `server/src/providers/index.ts`，两轮合计 12 个新 provider 类/实例，把注册总数从 83 推到 98（其中 `823c496b → 1a64da55` 增 9 个到 94，`1a64da55 → 3212ac11` 再增 3 个到 98）：
+注册于 `server/src/providers/index.ts`，两轮合计 12 个新 provider 类/实例，把注册总数从 83 推到 104（其中 `823c496b → 1a64da55` 增 9 个到 94，`1a64da55 → 3212ac11` 再增 3 个到 98，`3212ac11 → ed38ed46` 再增 6 个到 104：`LlmKiwiProvider`、`NutrientProvider`、`TinyFishProvider`、`KeylessDecisionProvider('tanod')`、`KeylessDecisionProvider('classifierdev')`、另 1 处 `OpenAICompatProvider`）：
 
 | Provider | 文件 | 说明 |
 |---|---|---|
