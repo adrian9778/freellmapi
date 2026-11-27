@@ -1,17 +1,17 @@
 {
-  "baseline": "3212ac117dd9cf3cc2e987273a1b72b60d75f3f0",
-  "baselineShort": "3212ac11",
-  "prevBaseline": "823c496b",
+  "baseline": "ed38ed46d78be648cb193b32ab893771bca453ad",
+  "baselineShort": "ed38ed46",
+  "prevBaseline": "3212ac11",
   "branch": "adrian",
-  "reviewDate": "2026-11-23",
+  "reviewDate": "2026-11-27",
   "scope": [
     "docs/sourceReader",
     "docs/topics"
   ],
   "depth": "全量逐篇深度重刷（已完成）",
-  "driftCommitCount": 111,
+  "driftCommitCount": 33,
   "driftFileCount": 518,
-  "worktree": "clean (HEAD = 3212ac11，本轮仅 .progress 工具 root 路径修正未提交)",
+  "worktree": "clean (HEAD=ed38ed46 after merge of upstream/main, docs refreshed on top)",
   "tools": [
     "sr_symbols.cjs",
     "sr_tools.py",
