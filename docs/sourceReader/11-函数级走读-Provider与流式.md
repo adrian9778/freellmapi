@@ -162,7 +162,22 @@ protected async *readSseStream(res, opts?): AsyncGenerator<ChatCompletionChunk>
 | `OutcrawlProvider` | `server/src/providers/outcrawl.ts` | 搜索类（继承 `SearchOnlyProvider`） |
 | `PuterProvider` | `server/src/providers/puter.ts` | 新上游适配（继承 `BaseProvider`，本轮新增） |
 | `SpeechFlowProvider` | `server/src/providers/speechflow.ts` | 语音类（继承 `BaseProvider`，本轮新增） |
-| `MeldportProvider` | `server/src/providers/meldport.ts` | 新上游适配（继承 `OpenAICompatProvider`，本轮新增） |
+| `MeldportProvider` | `server/src/providers/meldport.ts` | 新上游适配（继承 `OpenAICompatProvider`） |
+
+### 本轮新增 provider（基准 3212ac11 → ed38ed46）
+
+本轮再增 6 处注册，注册总数 98→104（Platform 成员 99→107，新增 `llmkiwi`/`tokenreply`/`classifierdev`/`tanod`/`nutrient`/`tinyfish`）：
+
+| Provider | 文件 | 说明 |
+|---|---|---|
+| `LlmKiwiProvider` | `server/src/providers/llmkiwi.ts` | LLM.kiwi，继承 `OpenAICompatProvider`；免费档（无卡）服务 `auto`/`hrllm` |
+| `NutrientProvider` | `server/src/providers/nutrient.ts` | Nutrient，继承 `OpenAICompatProvider`；免费 chat 路由白名单 `nutrient-s`/`nutrient-m` |
+| `TinyFishProvider` | `server/src/providers/tinyfish.ts` | TinyFish（tinyfish.ai）网页搜索，继承 `SearchOnlyProvider`，走 `X-API-Key` 头，搜索免费 |
+| `KeylessDecisionProvider('tanod')` | `server/src/providers/tanod.ts` | Tanod 免密决策端点；免费端点回 402 时按 429 处理（可重试） |
+| `KeylessDecisionProvider('classifierdev')` | `server/src/providers/index.ts` | classifier.dev 免密决策适配 |
+| `OpenAICompatProvider('tokenreply')` | `server/src/providers/index.ts` | TokenReply，OpenAI 兼容出站 |
+
+其中 TinyFish 属**搜索出站**，函数级拆解见 [17 搜索与多模态](17-搜索与多模态.md) §7；本篇仍只讲文本 chat 流式契约与这些 provider 的注册归属。
 
 其中 Varosity/Rime/FreeTts/Typecast/Cartesia/Silvr 属**多模态出站**，其函数级拆解不在本篇，见 [17 搜索与多模态](17-搜索与多模态.md) §7；本篇仍只讲文本 chat 流式契约与这些 provider 的注册归属。
 
